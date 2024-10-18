@@ -6,6 +6,7 @@
 #include "Tank.h"
 #include <vector>
 #include <string>
+#include <ranges>
 
 class Interfaz {
     sf::Clock gameTimer;
@@ -26,7 +27,7 @@ public:
     void limpiarTrazos();
     void verificarCondicionesVictoria();
     static bool todosLosTanquesDestruidos(const std::vector<Tank>& tanques) ;
-    int contarTanquesVivos(const std::vector<Tank>& tanques) const;
+    static int contarTanquesVivos(const std::vector<Tank>& tanques) ;
     void mostrarPantallaVictoria(const std::string& ganador);
 
 

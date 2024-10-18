@@ -18,16 +18,16 @@ Interfaz::Interfaz(Mapa& mapa, std::string  nombre1, std::string  nombre2,
 
     shootButton.setSize(sf::Vector2f(100, 40));
     shootButton.setFillColor(sf::Color::White);
-    shootButton.setPosition(window.getSize().x - 120, window.getSize().y - 70);
+    shootButton.setPosition(static_cast<float>(window.getSize().x) - 120.0f, static_cast<float>(window.getSize().y) - 70.0f);
     shootButtonText.setFont(font);
     shootButtonText.setString("Disparar");
     shootButtonText.setCharacterSize(20);
     shootButtonText.setFillColor(sf::Color::Black);
-    shootButtonText.setPosition(window.getSize().x - 110, window.getSize().y - 65);
+    shootButtonText.setPosition(static_cast<float>(window.getSize().x)- 110, static_cast<float>(window.getSize().y) - 65);
 
     currentTurnText.setFont(font);
     currentTurnText.setCharacterSize(20);
-    currentTurnText.setPosition(window.getSize().x / 2 - 50, 70);
+    currentTurnText.setPosition(static_cast<float>(window.getSize().x) / 2 - 50, 70);
 
     selectedTank = nullptr;
     isShooting = false;
@@ -37,8 +37,8 @@ Interfaz::Interfaz(Mapa& mapa, std::string  nombre1, std::string  nombre2,
     }
     fondoSprite.setTexture(fondoTexture);
     fondoSprite.setScale(
-        static_cast<float>(window.getSize().x) / fondoTexture.getSize().x,
-        static_cast<float>(window.getSize().y) / fondoTexture.getSize().y
+    static_cast<float>(window.getSize().x) / static_cast<float>(fondoTexture.getSize().x),
+    static_cast<float>(window.getSize().y) / static_cast<float>(fondoTexture.getSize().y)
     );
 
     if (!font.loadFromFile("/home/amanda/CLionProjects/Proyecto_2_D2/recursos/PixelifySans-VariableFont_wght.ttf")) {
@@ -127,9 +127,9 @@ void Interfaz::actualizarInterfaz() {
 }
 
 void Interfaz::manejarSeleccionTanque(int x, int y) {
-    float tileSize = static_cast<float>(window.getSize().x) / mapa.getColumnas();
-    int fila = static_cast<int>(y / tileSize);
-    int columna = static_cast<int>(x / tileSize);
+    float tileSize = static_cast<float>(window.getSize().x) / static_cast<float>(mapa.getColumnas());
+    int fila = static_cast<int>(static_cast<float>(y) / tileSize);
+    int columna = static_cast<int>(static_cast<float>(x) / tileSize);
 
     for (auto& tanque : (turnoJugador1 ? tanquesJugador1 : tanquesJugador2)) {
         if (tanque.getX() == fila && tanque.getY() == columna && tanque.getSalud() > 0) {
@@ -147,16 +147,16 @@ void Interfaz::manejarDisparo(int destinoX, int destinoY) {
         }
 
         std::cout << "Disparo realizado a (" << destinoX << ", " << destinoY << ")" << std::endl;
-        float tileSize = static_cast<float>(window.getSize().x) / mapa.getColumnas();
-        sf::Vector2f inicio(selectedTank->getY() * tileSize + tileSize / 2, selectedTank->getX() * tileSize + tileSize / 2);
-        sf::Vector2f destino(destinoX, destinoY);
+        float tileSize = static_cast<float>(window.getSize().x) / static_cast<float>(mapa.getColumnas());
+        sf::Vector2f inicio(static_cast<float>(selectedTank->getY()) * tileSize + tileSize / 2.0f, static_cast<float>(selectedTank->getX()) * tileSize + tileSize / 2.0f);
+        sf::Vector2f destino(static_cast<float>(destinoX), static_cast<float>(destinoY));
 
         std::vector<sf::Vector2f> trayectoria = calcularTrayectoria(inicio, destino);
         dibujarTrayectoriaBala(trayectoria);
 
         // Aplicar daño si la bala golpea a un tanque
         for (auto& tanque : (turnoJugador1 ? tanquesJugador2 : tanquesJugador1)) {
-            sf::Vector2f posTanque(tanque.getY() * tileSize + tileSize / 2, tanque.getX() * tileSize + tileSize / 2);
+            sf::Vector2f posTanque(static_cast<float>(tanque.getY()) * tileSize + tileSize / 2.0f, static_cast<float>(tanque.getX()) * tileSize + tileSize / 2.0f);
             if (balaGolpeaTanque(trayectoria, posTanque)) {
                 int danio = calcularDanio(selectedTank->getColor(), tanque.getColor());
                 tanque.recibirDanio(danio);
@@ -165,7 +165,7 @@ void Interfaz::manejarDisparo(int destinoX, int destinoY) {
         }
 
         // La bala puede dañar al tanque que la disparó
-        sf::Vector2f posTanqueDisparo(selectedTank->getY() * tileSize + tileSize / 2, selectedTank->getX() * tileSize + tileSize / 2);
+        sf::Vector2f posTanqueDisparo(static_cast<float>(selectedTank->getY()) * tileSize + tileSize / 2.0f, static_cast<float>(selectedTank->getX()) * tileSize + tileSize / 2.0f);
         if (balaGolpeaTanque(trayectoria, posTanqueDisparo)) {
             int danio = calcularDanio(selectedTank->getColor(), selectedTank->getColor());
             selectedTank->recibirDanio(danio);
@@ -192,7 +192,7 @@ std::vector<sf::Vector2f> Interfaz::calcularTrayectoria(sf::Vector2f inicio, sf:
     while (rebotesActuales <= maxRebotes) {
         sf::Vector2f siguientePosicion = posActual + direccion * 10.0f; // Move in small steps
 
-        float tileSize = static_cast<float>(window.getSize().x) / mapa.getColumnas();
+        float tileSize = static_cast<float>(window.getSize().x) / static_cast<float>(mapa.getColumnas());
 
         // Check collision with obstacles
         int filaObstaculo = static_cast<int>(siguientePosicion.y / tileSize);
@@ -224,13 +224,10 @@ std::vector<sf::Vector2f> Interfaz::calcularTrayectoria(sf::Vector2f inicio, sf:
 
 
 bool Interfaz::balaGolpeaTanque(const std::vector<sf::Vector2f>& trayectoria, sf::Vector2f posTanque) {
-    float tileSize = static_cast<float>(window.getSize().x) / mapa.getColumnas();
-    for (const auto& punto : trayectoria) {
-        if (distancia(punto, posTanque) < tileSize / 2) {
-            return true;
-        }
-    }
-    return false;
+    float tileSize = static_cast<float>(window.getSize().x) / static_cast<float>(mapa.getColumnas());
+    return std::ranges::any_of(trayectoria, [&](const sf::Vector2f& punto) {
+        return distancia(punto, posTanque) < tileSize / 2;
+    });
 }
 
 
@@ -284,11 +281,11 @@ void Interfaz::dibujar() {
     // Draw selected tank indicator
     if (selectedTank != nullptr) {
         // Definir tileSize aquí
-        float tileSize = static_cast<float>(window.getSize().x) / mapa.getColumnas();
+        float tileSize = static_cast<float>(window.getSize().x) / static_cast<float>(mapa.getColumnas());
 
         sf::CircleShape selector(10);
         selector.setFillColor(sf::Color::Green);
-        selector.setPosition(selectedTank->getY() * tileSize, selectedTank->getX() * tileSize);
+        selector.setPosition(static_cast<float>(selectedTank->getY()) * tileSize, static_cast<float>(selectedTank->getX()) * tileSize);
         window.draw(selector);
     }
 
@@ -310,13 +307,13 @@ void Interfaz::dibujar() {
 }
 
 void Interfaz::dibujarInfoDanio() {
-    float tileSize = static_cast<float>(window.getSize().x) / mapa.getColumnas();
+    float tileSize = static_cast<float>(window.getSize().x) / static_cast<float>(mapa.getColumnas());
     sf::Text textoSalud;
     textoSalud.setFont(font);
     textoSalud.setCharacterSize(12);
 
     auto dibujarSaludTanque = [&](const Tank& tanque) {
-        textoSalud.setPosition(tanque.getY() * tileSize, tanque.getX() * tileSize - 20);
+        textoSalud.setPosition(static_cast<float>(tanque.getY()) * tileSize, static_cast<float>(tanque.getX()) * tileSize - 20.0f);
         textoSalud.setString(std::to_string(tanque.getSalud()) + "%");
         window.draw(textoSalud);
     };
@@ -326,17 +323,17 @@ void Interfaz::dibujarInfoDanio() {
 }
 
 void Interfaz::dibujarMapa() {
-    float tileSize = static_cast<float>(window.getSize().x) / mapa.getColumnas();
+    float tileSize = static_cast<float>(window.getSize().x) / static_cast<float>(mapa.getColumnas());
 
     for (int i = 0; i < mapa.getFilas(); ++i) {
         for (int j = 0; j < mapa.getColumnas(); ++j) {
 
             if (mapa.hayObstaculo(i, j)) {
 
-                obstaculoSprite.setPosition(j * tileSize, i * tileSize);
+                obstaculoSprite.setPosition(static_cast<float>(j) * tileSize, static_cast<float>(i) * tileSize);
                 obstaculoSprite.setScale(
-                    tileSize / obstaculoSprite.getTexture()->getSize().x,
-                    tileSize / obstaculoSprite.getTexture()->getSize().y
+                    tileSize / static_cast<float>(obstaculoSprite.getTexture()->getSize().x),
+                    tileSize / static_cast<float>(obstaculoSprite.getTexture()->getSize().y)
                 );
                 window.draw(obstaculoSprite);
             }
@@ -346,7 +343,7 @@ void Interfaz::dibujarMapa() {
 
 
 void Interfaz::dibujarTanques() {
-    float tileSize = static_cast<float>(window.getSize().x) / mapa.getColumnas();
+    float tileSize = static_cast<float>(window.getSize().x) / static_cast<float>(mapa.getColumnas());
 
     auto dibujarTanque = [&](const Tank& tanque) {
         sf::Sprite sprite;
@@ -360,10 +357,10 @@ void Interfaz::dibujarTanques() {
                 case Tank::AMARILLO: sprite.setTexture(tanqueAmarilloTexture); break;
             }
         }
-        sprite.setPosition(tanque.getY() * tileSize, tanque.getX() * tileSize);
+        sprite.setPosition(static_cast<float>(tanque.getY()) * tileSize, static_cast<float>(tanque.getX()) * tileSize);
         sprite.setScale(
-            tileSize / sprite.getTexture()->getSize().x,
-            tileSize / sprite.getTexture()->getSize().y
+            tileSize / static_cast<float>(sprite.getTexture()->getSize().x),
+            tileSize / static_cast<float>(sprite.getTexture()->getSize().y)
         );
         window.draw(sprite);
     };
@@ -377,23 +374,23 @@ void Interfaz::configurarHUD() {
     textoJugador1.setString(nombreJugador1);
     textoJugador1.setCharacterSize(22);
     textoJugador1.setPosition(10, 10);
-    textoJugador1.setColor(sf::Color::Black);
+    textoJugador1.setFillColor(sf::Color::Black);
 
     textoJugador2.setFont(font);
     textoJugador2.setString(nombreJugador2);
     textoJugador2.setCharacterSize(22);
-    textoJugador2.setPosition(window.getSize().x - 200, 10);
-    textoJugador2.setColor(sf::Color::Black);
+    textoJugador2.setPosition(static_cast<float>(window.getSize().x) - 200.0f, 10.0f);
+    textoJugador2.setFillColor(sf::Color::Black);
 
     textoTurno.setFont(font);
     textoTurno.setCharacterSize(22);
-    textoTurno.setPosition(window.getSize().x / 2 - 50, 10);
-    textoTurno.setColor(sf::Color::Black);
+    textoTurno.setPosition(static_cast<float>(window.getSize().x) / 2 - 50, 10);
+    textoTurno.setFillColor(sf::Color::Black);
 
     textoTiempo.setFont(font);
     textoTiempo.setCharacterSize(22);
-    textoTiempo.setPosition(window.getSize().x / 2 - 50, 40);
-    textoTiempo.setColor(sf::Color::Black);
+    textoTiempo.setPosition(static_cast<float>(window.getSize().x) / 2 - 50, 40);
+    textoTiempo.setFillColor(sf::Color::Black);
 }
 
 void Interfaz::dibujarHUD() {
@@ -415,7 +412,7 @@ void Interfaz::dibujarHUD() {
 }
 
 void Interfaz::manejarClicIzquierdo(int x, int y) {
-    if (shootButton.getGlobalBounds().contains(x, y)) {
+    if (shootButton.getGlobalBounds().contains(static_cast<float>(x), static_cast<float>(y))) {
         isShooting = true;
     } else if (isShooting) {
         manejarDisparo(x, y);
@@ -452,7 +449,7 @@ bool Interfaz::todosLosTanquesDestruidos(const std::vector<Tank>& tanques) {
 
 }
 
-int Interfaz::contarTanquesVivos(const std::vector<Tank>& tanques) const {
+int Interfaz::contarTanquesVivos(const std::vector<Tank>& tanques) {
     int count = 0;
     for (const auto& tanque : tanques) {
         if (tanque.getSalud() > 0) {
@@ -475,8 +472,8 @@ void Interfaz::mostrarPantallaVictoria(const std::string& ganador) {
     }
 
     textoVictoria.setPosition(
-        (window.getSize().x - textoVictoria.getLocalBounds().width) / 2,
-        (window.getSize().y - textoVictoria.getLocalBounds().height) / 2
+    (static_cast<float>(window.getSize().x) - textoVictoria.getLocalBounds().width) / 2.0f,
+    (static_cast<float>(window.getSize().y) - textoVictoria.getLocalBounds().height) / 2.0f
     );
 
     window.clear();

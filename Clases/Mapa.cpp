@@ -5,6 +5,8 @@
 #include <vector>
 #include "Tank.h"
 #include <iostream>
+#include <ranges>
+#include <bits/ranges_algo.h>
 
 Mapa::Mapa(int filas, int columnas) : filas(filas), columnas(columnas) {
     // Inicializar la matriz de adyacencia
@@ -63,12 +65,9 @@ void Mapa::desconectarNodo(int nodo) {
 }
 
 bool Mapa::esPosicionTanque(int fila, int columna, const std::vector<Tank>& tanques) {
-    for (const auto& tanque : tanques) {
-        if (tanque.getX() == fila && tanque.getY() == columna) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(tanques, [fila, columna](const Tank& tanque) {
+        return tanque.getX() == fila && tanque.getY() == columna;
+    });
 }
 
 bool Mapa::esAccesible(int fila, int columna) const {
