@@ -1,9 +1,10 @@
 #ifndef TANK_H
 #define TANK_H
 
-#include "Mapa.h"
+class Mapa;
 
 class Tank {
+    int damage{};
 public:
     enum Color { AZUL, CELESTE, ROJO, AMARILLO };  // Colores del tanque
 
@@ -13,6 +14,12 @@ public:
     Color getColor() const;
     void mover(const Mapa& mapa);  // Mueve el tanque según las reglas (BFS, Dijkstra, o movimiento aleatorio)
     void recibirDanio(int cantidad);  // Aplica daño al tanque
+    int getSalud() const { return salud; }
+
+    // Sobrecarga del operador ==
+    bool operator==(const Tank& other) const {
+        return x == other.x && y == other.y && color == other.color;
+    }
 
 private:
     int x, y;  // Posición del tanque en la cuadrícula
