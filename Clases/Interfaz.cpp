@@ -2,6 +2,9 @@
 #include "Mapa.h"
 #include "Tank.h"
 #include <cmath>
+#include <algorithm> // Para sort, shuffle, etc.
+#include <random>    // Para sample, shuffle, etc.
+#include <iterator>  // Para std::move (si es necesario)
 #include <iostream>
 #include <utility>
 #include "Juego.h"
@@ -21,6 +24,18 @@ Interfaz::Interfaz(Mapa& mapa, std::string  nombre1, std::string  nombre2,
     shootButton.setPosition(static_cast<float>(window.getSize().x) - 120.0f, static_cast<float>(window.getSize().y) - 70.0f);
     shootButtonText.setFont(font);
     shootButtonText.setString("Disparar");
+
+    // Configuración del botón "Mover"
+    moveButton.setSize(sf::Vector2f(100, 40)); // Tamaño del botón
+    moveButton.setFillColor(sf::Color::White); // Color del botón
+    moveButton.setPosition(static_cast<float>(window.getSize().x) - 240.0f, static_cast<float>(window.getSize().y) - 70.0f); // Posición del botón
+    moveButtonText.setFont(font);
+    moveButtonText.setString("Mover");
+    moveButtonText.setCharacterSize(20);
+    moveButtonText.setFillColor(sf::Color::Black);
+    moveButtonText.setPosition(static_cast<float>(window.getSize().x) - 210, static_cast<float>(window.getSize().y) - 65);
+
+
     shootButtonText.setCharacterSize(20);
     shootButtonText.setFillColor(sf::Color::Black);
     shootButtonText.setPosition(static_cast<float>(window.getSize().x)- 110, static_cast<float>(window.getSize().y) - 65);
@@ -32,7 +47,7 @@ Interfaz::Interfaz(Mapa& mapa, std::string  nombre1, std::string  nombre2,
     selectedTank = nullptr;
     isShooting = false;
 
-    if (!fondoTexture.loadFromFile("/home/amanda/CLionProjects/Proyecto_2_D2/recursos/fondo.png")) {
+    if (!fondoTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/fondo.png")) {
         throw std::runtime_error("No se pudo cargar la textura del fondo");
     }
     fondoSprite.setTexture(fondoTexture);
@@ -41,31 +56,31 @@ Interfaz::Interfaz(Mapa& mapa, std::string  nombre1, std::string  nombre2,
     static_cast<float>(window.getSize().y) / static_cast<float>(fondoTexture.getSize().y)
     );
 
-    if (!font.loadFromFile("/home/amanda/CLionProjects/Proyecto_2_D2/recursos/PixelifySans-VariableFont_wght.ttf")) {
+    if (!font.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/PixelifySans-VariableFont_wght.ttf")) {
         throw std::runtime_error("No se pudo cargar la fuente");
     }
 
-    if (!obstaculoTexture.loadFromFile("/home/amanda/CLionProjects/Proyecto_2_D2/recursos/muro.png")) {
+    if (!obstaculoTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/muro.png")) {
         throw std::runtime_error("No se pudo cargar la textura del obstáculo");
     }
     obstaculoSprite.setTexture(obstaculoTexture);
 
-    if (!tanqueAzulTexture.loadFromFile("/home/amanda/CLionProjects/Proyecto_2_D2/recursos/tanqueAzul.png")) {
+    if (!tanqueAzulTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/tanqueAzul.png")) {
         throw std::runtime_error("No se pudo cargar la textura del tanque azul");
     }
-    if (!tanqueRojoTexture.loadFromFile("/home/amanda/CLionProjects/Proyecto_2_D2/recursos/tanqueRojo.png")) {
+    if (!tanqueRojoTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/tanqueRojo.png")) {
         throw std::runtime_error("No se pudo cargar la textura del tanque rojo");
     }
-    if (!tanqueCelesteTexture.loadFromFile("/home/amanda/CLionProjects/Proyecto_2_D2/recursos/tanqueCeleste.png")) {
+    if (!tanqueCelesteTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/tanqueCeleste.png")) {
         throw std::runtime_error("No se pudo cargar la textura del tanque celeste");
     }
-    if (!tanqueAmarilloTexture.loadFromFile("/home/amanda/CLionProjects/Proyecto_2_D2/recursos/tanqueAmarillo.png")) {
+    if (!tanqueAmarilloTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/tanqueAmarillo.png")) {
         throw std::runtime_error("No se pudo cargar la textura del tanque amarillo");
     }
-    if (!tanqueDestruidoTexture.loadFromFile("/home/amanda/CLionProjects/Proyecto_2_D2/recursos/explosion.png")) {
+    if (!tanqueDestruidoTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/explosion.png")) {
         throw std::runtime_error("No se pudo cargar la textura del tanque destruido");
     }
-    if (!balaTexture.loadFromFile("/home/amanda/CLionProjects/Proyecto_2_D2/recursos/bala.png")) {
+    if (!balaTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/bala.png")) {
         throw std::runtime_error("No se pudo cargar la textura de la bala");
     }
     balaSprite.setTexture(balaTexture);
@@ -100,9 +115,15 @@ void Interfaz::procesarEventos() {
             if (event.mouseButton.button == sf::Mouse::Left) {
                 manejarClicIzquierdo(event.mouseButton.x, event.mouseButton.y);
             }
+            else if (event.mouseButton.button == sf::Mouse::Right) {
+                manejarClickDerecho(event.mouseButton.x, event.mouseButton.y);
+            }
         }
+
     }
 }
+
+
 
 void Interfaz::actualizar(sf::Time tiempoTranscurrido) {
     if (!trayectoriaBala.empty() && indiceAnimacionBala < trayectoriaBala.size()) {
@@ -138,6 +159,25 @@ void Interfaz::manejarSeleccionTanque(int x, int y) {
         }
     }
     selectedTank = nullptr;
+}
+void Interfaz::manejarMovimiento(int destinoX, int destinoY) {
+    if (selectedTank == nullptr || selectedTank->getSalud() <= 0) {
+        std::cout << "No se puede mover: tanque no seleccionado o destruido" << std::endl;
+        return;
+    }
+
+    // Verifica si la posición de destino está dentro del mapa y no es un obstáculo
+    if (destinoX < 0 || destinoX >= mapa.getFilas() ||
+        destinoY < 0 || destinoY >= mapa.getColumnas() ||
+        mapa.hayObstaculo(destinoX, destinoY)) {
+        std::cout << "Movimiento inválido: fuera de límites o posición con obstáculo" << std::endl;
+        return;
+
+        }
+
+    // Establecer el destino y mover el tanque
+    selectedTank->setPos(destinoX, destinoY);
+    selectedTank->mover(mapa);
 }
 
 void Interfaz::manejarDisparo(int destinoX, int destinoY) {
@@ -276,6 +316,8 @@ void Interfaz::dibujar() {
     // Draw shoot button
     window.draw(shootButton);
     window.draw(shootButtonText);
+    window.draw(moveButton);         // Dibuja el botón de mover
+    window.draw(moveButtonText);
 
 
     // Draw selected tank indicator
@@ -412,11 +454,50 @@ void Interfaz::dibujarHUD() {
 }
 
 void Interfaz::manejarClicIzquierdo(int x, int y) {
+    // Verificar si se presiona el botón de disparo
     if (shootButton.getGlobalBounds().contains(static_cast<float>(x), static_cast<float>(y))) {
-        isShooting = true;
-    } else if (isShooting) {
+        isShooting = true;  // Indica que se está en modo de disparo
+    }
+    // Verificar si se presiona el botón de mover
+    else if (moveButton.getGlobalBounds().contains(static_cast<float>(x), static_cast<float>(y))) {
+        // Si el botón de mover fue presionado, maneja el movimiento
+        manejarMovimiento(x, y); // Llama al método para mover el tanque
+    }
+    // Manejar el disparo si se estaba en modo de disparo
+    else if (isShooting) {
         manejarDisparo(x, y);
-        isShooting = false;
+        isShooting = false; // Restablecer el estado de disparo
+    }
+    // Si no se presionaron los botones, manejar la selección del tanque
+    else {
+        manejarSeleccionTanque(x, y);
+    }
+}
+
+void Interfaz::manejarClickDerecho(int x, int y) {
+    // Si estamos esperando el destino, procesar el movimiento
+    if (esperandoDestino) {
+        // Convertir las coordenadas del click a coordenadas del mapa
+        int filasMapa = mapa.getFilas();
+        int columnasMapa = mapa.getColumnas();
+        float tamañoCelda = static_cast<float>(window.getSize().x) / columnasMapa;
+
+        int mapaX = static_cast<int>(x / tamañoCelda);
+        int mapaY = static_cast<int>(y / tamañoCelda);
+
+        manejarMovimiento(mapaX, mapaY);
+        esperandoDestino = false;
+        return;
+    }
+
+    // Si se presiona el botón de mover
+    if (moveButton.getGlobalBounds().contains(static_cast<float>(x), static_cast<float>(y))) {
+        if (selectedTank != nullptr && selectedTank->getSalud() > 0) {
+            esperandoDestino = true;
+            std::cout << "Seleccione el destino para el tanque" << std::endl;
+        } else {
+            std::cout << "Seleccione un tanque válido primero" << std::endl;
+        }
     } else {
         manejarSeleccionTanque(x, y);
     }
@@ -482,7 +563,6 @@ void Interfaz::mostrarPantallaVictoria(const std::string& ganador) {
 
     sf::sleep(sf::seconds(5)); // Mostrar la pantalla de victoria por 5 segundos
 }
-
 
 
 

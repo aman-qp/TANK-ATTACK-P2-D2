@@ -1,6 +1,9 @@
 #include "Mapa.h"
 #include <cstdlib>
 #include <queue>
+#include <algorithm> // Para sort, shuffle, etc.
+#include <random>    // Para sample, shuffle, etc.
+#include <iterator>  // Para std::move (si es necesario)
 #include <ctime>
 #include <vector>
 #include "Tank.h"
@@ -116,10 +119,10 @@ void Mapa::asegurarAccesibilidad() {
 int Mapa::getFilas() const { return filas; }
 int Mapa::getColumnas() const { return columnas; }
 
-bool Mapa::hayObstaculo(int fila, int columna) const {
-    return obstaculos[fila][columna];
-}
 
+bool Mapa::hayObstaculo(int fila, int columna) const {
+    return obstaculos[fila][columna]; // Ya está implementado
+}
 std::vector<std::pair<int, int>> Mapa::obtenerVecinos(int fila, int columna) const {
     std::vector<std::pair<int, int>> vecinos;
     int nodo = fila * columnas + columna;

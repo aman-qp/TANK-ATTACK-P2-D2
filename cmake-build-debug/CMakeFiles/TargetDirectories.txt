@@ -1,0 +1,3 @@
+/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/cmake-build-debug/CMakeFiles/Proyecto_2_D2.dir
+/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/cmake-build-debug/CMakeFiles/rebuild_cache.dir

@@ -14,7 +14,7 @@ void Juego::iniciar() {
     sf::RenderWindow window(sf::VideoMode(800, 600), "Tank Attack! - Ingresar Nombres");
 
     sf::Font font;
-    if (!font.loadFromFile("/home/amanda/CLionProjects/Proyecto_2_D2/recursos/PixelifySans-VariableFont_wght.ttf")) {
+    if (!font.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/PixelifySans-VariableFont_wght.ttf")) {
         throw std::runtime_error("No se pudo cargar la fuente");
     }
 
