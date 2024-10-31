@@ -1,188 +1,139 @@
 #include "Tank.h"
 #include "Mapa.h"
-#include <cstdlib>
+#include <algorithm>
 #include <queue>
-#include <thread> // Para usar std::this_thread::sleep_for
-#include <chrono> // Para manejar el tiempo
-#include <vector>
-#include <SFML/Graphics.hpp>  // Incluir SFML para usar sprites
+#include <climits>
 #include <iostream>
-#include <algorithm> // Para sort, shuffle, etc.
 #include <random>
-#include <climits> // Para INT_MAX
 
-Tank::Tank(int x, int y, Color color) : x(x), y(y), color(color), salud(100){}
+const int Tank::movimientos[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // Arriba, abajo, izquierda, derecha
 
-
-int Tank::getX() const {
-    return x;
+Tank::Tank(int x, int y, Color color) : x(x), y(y), color(color), salud(100) {
+    std::cout << "Creando tanque en posición (" << x << "," << y << ") con color " << color << std::endl;
 }
 
-int Tank::getY() const {
-    return y;
-}
+Tank::MovementType Tank::determinarTipoMovimiento(const std::vector<PowerUp>& powerUps) const {
+    bool tienePrecisionMovimiento = std::any_of(powerUps.begin(), powerUps.end(),
+        [](const PowerUp& p) { return p.estaActivo() && p.getTipo() == PowerUp::PRECISION_MOVIMIENTO; });
 
-Tank::Color Tank::getColor() const {
-    return color;
-}
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis(1, 100);
+    int probabilidad = dis(gen);
 
-void Tank::mover(const Mapa& mapa) {
     if (color == AZUL || color == CELESTE) {
-        // 50% probabilidad de usar BFS o movimiento aleatorio
-        if (rand() % 2 == 0) {
-            moverConBFS(mapa);
-        } else {
-            movimientoAleatorio(mapa);
+        if (tienePrecisionMovimiento) {
+            return probabilidad <= 90 ? BFS : RANDOM;
         }
-    } else if (color == ROJO || color == AMARILLO) {
-        // 80% probabilidad de usar Dijkstra o movimiento aleatorio
-        if (rand() % 10 < 8) {
-            moverConDijkstra(mapa);
-        } else {
-            movimientoAleatorio(mapa);
+        return probabilidad <= 50 ? BFS : RANDOM;
+    } else { // ROJO o AMARILLO
+        if (tienePrecisionMovimiento) {
+            return probabilidad <= 90 ? DIJKSTRA : RANDOM;
         }
-    }
-}
-void Tank::moverPasoAPaso(const std::vector<std::pair<int, int>>& camino) {
-    for (size_t i = 1; i < camino.size(); ++i) {
-        setPos(camino[i].first, camino[i].second); // Mueve el tanque a la siguiente posición
-        std::cout << "Moviendo el tanque a: (" << camino[i].first << ", " << camino[i].second << ")" << std::endl;
-
-        // Espera un tiempo para que el movimiento sea visible (ajusta el tiempo como prefieras)
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        return probabilidad <= 80 ? DIJKSTRA : RANDOM;
     }
 }
 
-// Definir las direcciones de movimiento (arriba, abajo, izquierda, derecha)
-const int movimientos[4][2] = { {0, 1}, {1, 0}, {0, -1}, {-1, 0} };
+std::vector<std::pair<int, int>> Tank::calcularRuta(const Mapa& mapa, int destinoX, int destinoY,
+                                                   const std::vector<PowerUp>& powerUps) {
+    MovementType tipoMovimiento = determinarTipoMovimiento(powerUps);
 
-void Tank::moverConBFS(const Mapa& mapa) {
+    switch (tipoMovimiento) {
+        case BFS:
+            return calcularRutaBFS(mapa, x, y, destinoX, destinoY);
+        case DIJKSTRA:
+            return calcularRutaDijkstra(mapa, x, y, destinoX, destinoY);
+        case RANDOM:
+            return calcularRutaAleatoria(mapa, x, y, destinoX, destinoY);
+    }
+
+    return std::vector<std::pair<int, int>>();
+}
+
+std::vector<std::pair<int, int>> Tank::calcularRutaBFS(const Mapa& mapa, int inicioX, int inicioY,
+                                                      int destinoX, int destinoY) {
     int filas = mapa.getFilas();
     int columnas = mapa.getColumnas();
 
-    // Variables de inicio y destino
-    int inicioX = x, inicioY = y;
-    int destinoX = rand() % filas;
-    int destinoY = rand() % columnas;
-
-    // Asegurarse de que no esté seleccionando una celda con obstáculo
-    while (mapa.hayObstaculo(destinoX, destinoY)) {
-        destinoX = rand() % filas;
-        destinoY = rand() % columnas;
-    }
-
-    std::cout << "Inicio: (" << inicioX << ", " << inicioY << "), Destino: (" << destinoX << ", " << destinoY << ")" << std::endl;
-
     std::vector<std::vector<bool>> visitado(filas, std::vector<bool>(columnas, false));
+    std::vector<std::vector<std::pair<int, int>>> padre(filas,
+        std::vector<std::pair<int, int>>(columnas, {-1, -1}));
+
     std::queue<std::pair<int, int>> cola;
     cola.push({inicioX, inicioY});
     visitado[inicioX][inicioY] = true;
 
-    std::vector<std::vector<std::pair<int, int>>> padre(filas, std::vector<std::pair<int, int>>(columnas, {-1, -1}));
-
-    // BFS Loop
     bool encontrado = false;
     while (!cola.empty() && !encontrado) {
         int actualX = cola.front().first;
         int actualY = cola.front().second;
         cola.pop();
 
-        std::cout << "Procesando nodo: (" << actualX << ", " << actualY << ")" << std::endl;
+        for (const auto& mov : movimientos) {
+            int nuevoX = actualX + mov[0];
+            int nuevoY = actualY + mov[1];
 
-        // Explorar las 4 direcciones posibles
-        for (int i = 0; i < 4; ++i) {
-            int nuevoX = actualX + movimientos[i][0];
-            int nuevoY = actualY + movimientos[i][1];
-
-            // Asegurarse de que el nuevo movimiento esté dentro del mapa y no sea un obstáculo
             if (nuevoX >= 0 && nuevoX < filas && nuevoY >= 0 && nuevoY < columnas &&
                 !mapa.hayObstaculo(nuevoX, nuevoY) && !visitado[nuevoX][nuevoY]) {
 
-                std::cout << "Moviendo a: (" << nuevoX << ", " << nuevoY << ")" << std::endl;
-
-                cola.push({nuevoX, nuevoY});
                 visitado[nuevoX][nuevoY] = true;
                 padre[nuevoX][nuevoY] = {actualX, actualY};
+                cola.push({nuevoX, nuevoY});
 
-                // Si encontramos el destino
                 if (nuevoX == destinoX && nuevoY == destinoY) {
                     encontrado = true;
-                    std::cout << "Destino alcanzado: (" << nuevoX << ", " << nuevoY << ")" << std::endl;
                     break;
                 }
             }
         }
     }
 
+    std::vector<std::pair<int, int>> ruta;
     if (encontrado) {
-        // Reconstruir el camino
-        std::vector<std::pair<int, int>> camino;
-        for (std::pair<int, int> at = {destinoX, destinoY}; at != std::make_pair(inicioX, inicioY); at = padre[at.first][at.second]) {
-            camino.push_back(at);
+        auto actual = std::make_pair(destinoX, destinoY);
+        while (actual.first != -1 && actual.second != -1) {
+            ruta.push_back(actual);
+            actual = padre[actual.first][actual.second];
         }
-        camino.push_back({inicioX, inicioY});
-        std::reverse(camino.begin(), camino.end());
-
-        // Mueve el tanque paso a paso
-        moverPasoAPaso(camino);
-    } else {
-        std::cout << "No se encontró un camino válido." << std::endl;
+        std::reverse(ruta.begin(), ruta.end());
     }
+
+    return ruta;
 }
 
-void Tank::moverConDijkstra(const Mapa& mapa) {
+std::vector<std::pair<int, int>> Tank::calcularRutaDijkstra(const Mapa& mapa, int inicioX, int inicioY,
+                                                           int destinoX, int destinoY) {
     int filas = mapa.getFilas();
     int columnas = mapa.getColumnas();
 
-    // Variables de inicio y destino
-    int inicioX = x, inicioY = y;
-    int destinoX = rand() % filas;
-    int destinoY = rand() % columnas;
-
-    // Asegurarse de que no esté seleccionando una celda con obstáculo
-    while (mapa.hayObstaculo(destinoX, destinoY)) {
-        destinoX = rand() % filas;
-        destinoY = rand() % columnas;
-    }
-
-    std::cout << "Inicio: (" << inicioX << ", " << inicioY << "), Destino: (" << destinoX << ", " << destinoY << ")" << std::endl;
-
-    // Matriz de distancias y visitados
     std::vector<std::vector<int>> distancias(filas, std::vector<int>(columnas, INT_MAX));
     std::vector<std::vector<bool>> visitado(filas, std::vector<bool>(columnas, false));
-    std::vector<std::vector<std::pair<int, int>>> padre(filas, std::vector<std::pair<int, int>>(columnas, {-1, -1}));
+    std::vector<std::vector<std::pair<int, int>>> padre(filas,
+        std::vector<std::pair<int, int>>(columnas, {-1, -1}));
 
-    // Inicializar la distancia al nodo de inicio
     distancias[inicioX][inicioY] = 0;
 
-    // Priority queue para los nodos a procesar
-    using Nodo = std::pair<int, std::pair<int, int>>; // (distancia, (x, y))
+    using Nodo = std::pair<int, std::pair<int, int>>;
     std::priority_queue<Nodo, std::vector<Nodo>, std::greater<Nodo>> cola;
     cola.push({0, {inicioX, inicioY}});
 
-    // Dijkstra Loop
     while (!cola.empty()) {
         int actualX = cola.top().second.first;
         int actualY = cola.top().second.second;
         cola.pop();
 
-        // Si el nodo ya fue visitado, continuamos
         if (visitado[actualX][actualY]) continue;
         visitado[actualX][actualY] = true;
 
-        // Explorar las 4 direcciones posibles
-        for (int i = 0; i < 4; ++i) {
-            int nuevoX = actualX + movimientos[i][0];
-            int nuevoY = actualY + movimientos[i][1];
+        for (const auto& mov : movimientos) {
+            int nuevoX = actualX + mov[0];
+            int nuevoY = actualY + mov[1];
 
-            // Asegurarse de que el nuevo movimiento esté dentro del mapa y no sea un obstáculo
             if (nuevoX >= 0 && nuevoX < filas && nuevoY >= 0 && nuevoY < columnas &&
                 !mapa.hayObstaculo(nuevoX, nuevoY) && !visitado[nuevoX][nuevoY]) {
 
-                // Calcular la nueva distancia
-                int nuevaDistancia = distancias[actualX][actualY] + 1; // Cada movimiento tiene un costo de 1
+                int nuevaDistancia = distancias[actualX][actualY] + 1;
 
-                // Si encontramos una distancia más corta, actualizamos
                 if (nuevaDistancia < distancias[nuevoX][nuevoY]) {
                     distancias[nuevoX][nuevoY] = nuevaDistancia;
                     padre[nuevoX][nuevoY] = {actualX, actualY};
@@ -192,33 +143,34 @@ void Tank::moverConDijkstra(const Mapa& mapa) {
         }
     }
 
-    // Reconstruir el camino
-    std::vector<std::pair<int, int>> camino;
-    for (std::pair<int, int> at = {destinoX, destinoY}; at != std::make_pair(-1, -1); at = padre[at.first][at.second]) {
-        camino.push_back(at);
+    std::vector<std::pair<int, int>> ruta;
+    if (distancias[destinoX][destinoY] != INT_MAX) {
+        auto actual = std::make_pair(destinoX, destinoY);
+        while (actual.first != -1 && actual.second != -1) {
+            ruta.push_back(actual);
+            actual = padre[actual.first][actual.second];
+        }
+        std::reverse(ruta.begin(), ruta.end());
     }
-    std::reverse(camino.begin(), camino.end());
 
-    if (camino.size() > 1) {
-        moverPasoAPaso(camino); // Mueve el tanque paso a paso
-    } else {
-        std::cout << "No se encontró un camino válido." << std::endl;
-    }
+    return ruta;
 }
 
+std::vector<std::pair<int, int>> Tank::calcularRutaAleatoria(const Mapa& mapa, int inicioX, int inicioY,
+                                                            int destinoX, int destinoY) {
+    std::vector<std::pair<int, int>> ruta;
+    ruta.push_back({inicioX, inicioY});
+    ruta.push_back({destinoX, destinoY});
+    return ruta;
+}
 
-
-void Tank::movimientoAleatorio(const Mapa& mapa) {
-    // Generar un movimiento aleatorio
-    int direccion = rand() % 4;
-    int nuevoX = x + movimientos[direccion][0];
-    int nuevoY = y + movimientos[direccion][1];
-
-    // Verificar si la nueva posición es válida
-    if (nuevoX >= 0 && nuevoX < mapa.getFilas() && nuevoY >= 0 && nuevoY < mapa.getColumnas() && !mapa.hayObstaculo(nuevoX, nuevoY)) {
-        setPos(nuevoX, nuevoY);
-        std::cout << "Movido aleatoriamente a: (" << nuevoX << ", " << nuevoY << ")" << std::endl;
-    }
+void Tank::setPos(int nuevaX, int nuevaY) {
+    x = nuevaX;
+    y = nuevaY;
+    sprite.setPosition(
+        static_cast<float>(y) * sprite.getLocalBounds().width,
+        static_cast<float>(x) * sprite.getLocalBounds().height
+    );
 }
 
 void Tank::recibirDanio(int cantidad) {

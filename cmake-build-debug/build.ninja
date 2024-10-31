@@ -84,6 +84,13 @@ build CMakeFiles/Proyecto_2_D2.dir/Clases/Interfaz.cpp.o: CXX_COMPILER__Proyecto
   OBJECT_DIR = CMakeFiles/Proyecto_2_D2.dir
   OBJECT_FILE_DIR = CMakeFiles/Proyecto_2_D2.dir/Clases
 
+build CMakeFiles/Proyecto_2_D2.dir/Clases/PowerUp.cpp.o: CXX_COMPILER__Proyecto_2_D2_unscanned_Debug /home/mau/Escritorio/Proyecto$ ii$ Datos$ ii/TANK-ATTACK-P2-D2/Clases/PowerUp.cpp || cmake_object_order_depends_target_Proyecto_2_D2
+  DEP_FILE = CMakeFiles/Proyecto_2_D2.dir/Clases/PowerUp.cpp.o.d
+  FLAGS = -g -std=gnu++20 -fdiagnostics-color=always
+  INCLUDES = -I"/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/include"
+  OBJECT_DIR = CMakeFiles/Proyecto_2_D2.dir
+  OBJECT_FILE_DIR = CMakeFiles/Proyecto_2_D2.dir/Clases
+
 
 # =============================================================================
 # Link build statements for EXECUTABLE target Proyecto_2_D2
@@ -92,7 +99,7 @@ build CMakeFiles/Proyecto_2_D2.dir/Clases/Interfaz.cpp.o: CXX_COMPILER__Proyecto
 #############################################
 # Link the executable Proyecto_2_D2
 
-build Proyecto_2_D2: CXX_EXECUTABLE_LINKER__Proyecto_2_D2_Debug CMakeFiles/Proyecto_2_D2.dir/Clases/main.cpp.o CMakeFiles/Proyecto_2_D2.dir/Clases/Juego.cpp.o CMakeFiles/Proyecto_2_D2.dir/Clases/Mapa.cpp.o CMakeFiles/Proyecto_2_D2.dir/Clases/Tank.cpp.o CMakeFiles/Proyecto_2_D2.dir/Clases/Interfaz.cpp.o | /usr/lib/x86_64-linux-gnu/libsfml-graphics.so.2.6.1 /usr/lib/x86_64-linux-gnu/libsfml-network.so.2.6.1 /usr/lib/x86_64-linux-gnu/libsfml-audio.so.2.6.1 /usr/lib/x86_64-linux-gnu/libsfml-window.so.2.6.1 /usr/lib/x86_64-linux-gnu/libsfml-system.so.2.6.1
+build Proyecto_2_D2: CXX_EXECUTABLE_LINKER__Proyecto_2_D2_Debug CMakeFiles/Proyecto_2_D2.dir/Clases/main.cpp.o CMakeFiles/Proyecto_2_D2.dir/Clases/Juego.cpp.o CMakeFiles/Proyecto_2_D2.dir/Clases/Mapa.cpp.o CMakeFiles/Proyecto_2_D2.dir/Clases/Tank.cpp.o CMakeFiles/Proyecto_2_D2.dir/Clases/Interfaz.cpp.o CMakeFiles/Proyecto_2_D2.dir/Clases/PowerUp.cpp.o | /usr/lib/x86_64-linux-gnu/libsfml-graphics.so.2.6.1 /usr/lib/x86_64-linux-gnu/libsfml-network.so.2.6.1 /usr/lib/x86_64-linux-gnu/libsfml-audio.so.2.6.1 /usr/lib/x86_64-linux-gnu/libsfml-window.so.2.6.1 /usr/lib/x86_64-linux-gnu/libsfml-system.so.2.6.1
   FLAGS = -g
   LINK_LIBRARIES = /usr/lib/x86_64-linux-gnu/libsfml-graphics.so.2.6.1  /usr/lib/x86_64-linux-gnu/libsfml-network.so.2.6.1  /usr/lib/x86_64-linux-gnu/libsfml-audio.so.2.6.1  /usr/lib/x86_64-linux-gnu/libsfml-window.so.2.6.1  /usr/lib/x86_64-linux-gnu/libsfml-system.so.2.6.1
   OBJECT_DIR = CMakeFiles/Proyecto_2_D2.dir

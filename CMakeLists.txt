@@ -20,7 +20,10 @@ add_executable(Proyecto_2_D2 Clases/main.cpp
         Clases/Tank.cpp
         include/Tank.h
         Clases/Interfaz.cpp
-        include/Interfaz.h)
+        include/Interfaz.h
+        include/PowerUp.h
+        Clases/PowerUp.cpp
+)
 
 # Link SFML libraries
 target_link_libraries(Proyecto_2_D2 sfml-system sfml-window sfml-graphics sfml-network sfml-audio)

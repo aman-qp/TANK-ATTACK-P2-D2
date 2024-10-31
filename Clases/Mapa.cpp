@@ -1,15 +1,11 @@
 #include "Mapa.h"
 #include <cstdlib>
 #include <queue>
-#include <algorithm> // Para sort, shuffle, etc.
-#include <random>    // Para sample, shuffle, etc.
-#include <iterator>  // Para std::move (si es necesario)
+#include <algorithm>
+#include <random>
 #include <ctime>
-#include <vector>
-#include "Tank.h"
 #include <iostream>
-#include <ranges>
-#include <bits/ranges_algo.h>
+#include "Tank.h"
 
 Mapa::Mapa(int filas, int columnas) : filas(filas), columnas(columnas) {
     // Inicializar la matriz de adyacencia
@@ -36,8 +32,8 @@ void Mapa::generarMapa(const std::vector<Tank>& todosLosTanques) {
         }
     }
 
-    // Colocar obstáculos
-    int cantidadObstaculos = static_cast<int>((filas * columnas) * 0.25);
+    // Generar obstáculos aleatorios
+    int cantidadObstaculos = static_cast<int>((filas * columnas) * 0.05);
     std::cout << "Generated " << cantidadObstaculos << " obstacles." << std::endl;
 
     for (int i = 0; i < cantidadObstaculos; ++i) {
@@ -48,10 +44,11 @@ void Mapa::generarMapa(const std::vector<Tank>& todosLosTanques) {
         // Evitar colocar obstáculos en posiciones de tanques
         if (!esPosicionTanque(fila, columna, todosLosTanques)) {
             desconectarNodo(nodo);
-            obstaculos[fila][columna] = true;  // Marcar como obstáculo
+            obstaculos[fila][columna] = true;
         }
     }
 
+    // Asegurar que el mapa sea accesible
     asegurarAccesibilidad();
 }
 
@@ -68,17 +65,10 @@ void Mapa::desconectarNodo(int nodo) {
 }
 
 bool Mapa::esPosicionTanque(int fila, int columna, const std::vector<Tank>& tanques) {
-    return std::ranges::any_of(tanques, [fila, columna](const Tank& tanque) {
-        return tanque.getX() == fila && tanque.getY() == columna;
-    });
-}
-
-bool Mapa::esAccesible(int fila, int columna) const {
-    int nodo = fila * columnas + columna;
-    for (int i = 0; i < matrizAdyacencia.size(); ++i) {
-        if (matrizAdyacencia[nodo][i] == 1) return true;
-    }
-    return false;
+    return std::any_of(tanques.begin(), tanques.end(),
+        [fila, columna](const Tank& tanque) {
+            return tanque.getX() == fila && tanque.getY() == columna;
+        });
 }
 
 void Mapa::asegurarAccesibilidad() {
@@ -101,7 +91,7 @@ void Mapa::asegurarAccesibilidad() {
         }
     }
 
-    // Si hay nodos no visitados, conectarlos al grafo
+    // Conectar nodos no visitados al grafo
     for (int i = 0; i < visitado.size(); ++i) {
         if (!visitado[i]) {
             int fila = i / columnas;
@@ -116,13 +106,26 @@ void Mapa::asegurarAccesibilidad() {
     }
 }
 
-int Mapa::getFilas() const { return filas; }
-int Mapa::getColumnas() const { return columnas; }
-
+bool Mapa::esAccesible(int fila, int columna) const {
+    int nodo = fila * columnas + columna;
+    for (int i = 0; i < matrizAdyacencia.size(); ++i) {
+        if (matrizAdyacencia[nodo][i] == 1) return true;
+    }
+    return false;
+}
 
 bool Mapa::hayObstaculo(int fila, int columna) const {
-    return obstaculos[fila][columna]; // Ya está implementado
+    return obstaculos[fila][columna];
 }
+
+int Mapa::getFilas() const {
+    return filas;
+}
+
+int Mapa::getColumnas() const {
+    return columnas;
+}
+
 std::vector<std::pair<int, int>> Mapa::obtenerVecinos(int fila, int columna) const {
     std::vector<std::pair<int, int>> vecinos;
     int nodo = fila * columnas + columna;

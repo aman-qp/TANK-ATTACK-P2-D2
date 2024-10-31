@@ -1,0 +1,16 @@
+# Archivos de compilación y dependencias
+cmake-build-debug/
+*.o
+*.obj
+*.exe
+*.log
+*.bin
+CMakeCache.txt
+CMakeFiles/
+
+# Archivos específicos de CLion
+.idea/
+.clion/
+
+# Archivos generados por CMake
+build/

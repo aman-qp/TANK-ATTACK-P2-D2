@@ -1,70 +1,47 @@
 #include "Interfaz.h"
 #include "Mapa.h"
 #include "Tank.h"
+#include "PowerUp.h"
 #include <cmath>
-#include <algorithm> // Para sort, shuffle, etc.
-#include <random>    // Para sample, shuffle, etc.
-#include <iterator>  // Para std::move (si es necesario)
+#include <algorithm>
 #include <iostream>
-#include <utility>
+#include <thread>
+
 #include "Juego.h"
 
-Interfaz::Interfaz(Mapa& mapa, std::string  nombre1, std::string  nombre2,
+Interfaz::Interfaz(Mapa& mapa, std::string nombre1, std::string nombre2,
                    const std::vector<Tank>& tanques1, const std::vector<Tank>& tanques2)
     : window(sf::VideoMode(1000, 800), "Tank Attack!"),
       mapa(mapa),
       nombreJugador1(std::move(nombre1)),
       nombreJugador2(std::move(nombre2)),
-      tanquesJugador1(tanques1),
-      tanquesJugador2(tanques2),
-      turnoJugador1(true) {
+      turnoJugador1(true),
+      juegoTerminado(false),
+      selectedTank(nullptr),
+      selectedPowerUp(nullptr),
+      isShooting(false),
+      esperandoDestino(false),
+      tiempoUltimoPowerUp(0.0f) {
 
-    shootButton.setSize(sf::Vector2f(100, 40));
-    shootButton.setFillColor(sf::Color::White);
-    shootButton.setPosition(static_cast<float>(window.getSize().x) - 120.0f, static_cast<float>(window.getSize().y) - 70.0f);
-    shootButtonText.setFont(font);
-    shootButtonText.setString("Disparar");
+    inicializarRecursos();
 
-    // Configuración del botón "Mover"
-    moveButton.setSize(sf::Vector2f(100, 40)); // Tamaño del botón
-    moveButton.setFillColor(sf::Color::White); // Color del botón
-    moveButton.setPosition(static_cast<float>(window.getSize().x) - 240.0f, static_cast<float>(window.getSize().y) - 70.0f); // Posición del botón
-    moveButtonText.setFont(font);
-    moveButtonText.setString("Mover");
-    moveButtonText.setCharacterSize(20);
-    moveButtonText.setFillColor(sf::Color::Black);
-    moveButtonText.setPosition(static_cast<float>(window.getSize().x) - 210, static_cast<float>(window.getSize().y) - 65);
+    // Copiar los tanques después de cargar las texturas
+    tanquesJugador1 = tanques1;
+    tanquesJugador2 = tanques2;
 
+    configurarBotones();
+    configurarHUD();
 
-    shootButtonText.setCharacterSize(20);
-    shootButtonText.setFillColor(sf::Color::Black);
-    shootButtonText.setPosition(static_cast<float>(window.getSize().x)- 110, static_cast<float>(window.getSize().y) - 65);
+    lineaTrayectoria.setPrimitiveType(sf::LineStrip);
+    indiceAnimacionBala = 0;
+}
 
-    currentTurnText.setFont(font);
-    currentTurnText.setCharacterSize(20);
-    currentTurnText.setPosition(static_cast<float>(window.getSize().x) / 2 - 50, 70);
-
-    selectedTank = nullptr;
-    isShooting = false;
-
-    if (!fondoTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/fondo.png")) {
-        throw std::runtime_error("No se pudo cargar la textura del fondo");
-    }
-    fondoSprite.setTexture(fondoTexture);
-    fondoSprite.setScale(
-    static_cast<float>(window.getSize().x) / static_cast<float>(fondoTexture.getSize().x),
-    static_cast<float>(window.getSize().y) / static_cast<float>(fondoTexture.getSize().y)
-    );
-
+void Interfaz::inicializarRecursos() {
     if (!font.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/PixelifySans-VariableFont_wght.ttf")) {
         throw std::runtime_error("No se pudo cargar la fuente");
     }
 
-    if (!obstaculoTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/muro.png")) {
-        throw std::runtime_error("No se pudo cargar la textura del obstáculo");
-    }
-    obstaculoSprite.setTexture(obstaculoTexture);
-
+    // Cargar texturas antes de crear los tanques
     if (!tanqueAzulTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/tanqueAzul.png")) {
         throw std::runtime_error("No se pudo cargar la textura del tanque azul");
     }
@@ -83,23 +60,72 @@ Interfaz::Interfaz(Mapa& mapa, std::string  nombre1, std::string  nombre2,
     if (!balaTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/bala.png")) {
         throw std::runtime_error("No se pudo cargar la textura de la bala");
     }
+    if (!fondoTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/fondo.png")) {
+        throw std::runtime_error("No se pudo cargar la textura del fondo");
+    }
+    if (!obstaculoTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/muro.png")) {
+        throw std::runtime_error("No se pudo cargar la textura del obstáculo");
+    }
+
+    // Configurar sprites
+    fondoSprite.setTexture(fondoTexture);
+    fondoSprite.setScale(
+        static_cast<float>(window.getSize().x) / static_cast<float>(fondoTexture.getSize().x),
+        static_cast<float>(window.getSize().y) / static_cast<float>(fondoTexture.getSize().y)
+    );
+    obstaculoSprite.setTexture(obstaculoTexture);
     balaSprite.setTexture(balaTexture);
     balaSprite.setScale(0.05f, 0.05f);
-    lineaTrayectoria.setPrimitiveType(sf::LineStrip);
-    indiceAnimacionBala = 0;
 
-    configurarHUD();
+    window.setVerticalSyncEnabled(true);
+    calcularDimensionesMapa();
+}
+
+void Interfaz::configurarBotones() {
+    float scale = calculateScale();
+
+    // Configurar botón de movimiento
+    moveButton.setSize(sf::Vector2f(100 * scale, 40 * scale));
+    moveButton.setFillColor(sf::Color::Black);
+    moveButton.setPosition(880 * scale, 680 * scale);
+
+    moveButtonText.setFont(font);
+    moveButtonText.setString("Mover");
+    moveButtonText.setCharacterSize(20 * scale);
+    moveButtonText.setFillColor(sf::Color::White);
+    moveButtonText.setPosition(900 * scale, 685 * scale);
+
+    // Configurar botón de disparo
+    shootButton.setSize(sf::Vector2f(100 * scale, 40 * scale));
+    shootButton.setFillColor(sf::Color::Black);
+    shootButton.setPosition(880 * scale, 730 * scale);
+
+    shootButtonText.setFont(font);
+    shootButtonText.setString("Disparar");
+    shootButtonText.setCharacterSize(20 * scale);
+    shootButtonText.setFillColor(sf::Color::White);
+    shootButtonText.setPosition(890 * scale, 735 * scale);
+
+    // Configurar botón de power-up
+    powerUpButton.setSize(sf::Vector2f(100 * scale, 40 * scale));
+    powerUpButton.setFillColor(sf::Color::Black);
+    powerUpButton.setPosition(880 * scale, 630 * scale);
+
+    powerUpButtonText.setFont(font);
+    powerUpButtonText.setString("Power-Up");
+    powerUpButtonText.setCharacterSize(20 * scale);
+    powerUpButtonText.setFillColor(sf::Color::White);
+    powerUpButtonText.setPosition(890 * scale, 635 * scale);
 }
 
 void Interfaz::iniciarVentana() {
     juegoTerminado = false;
     reloj.restart();
+    gameTimer.restart();
 
     while (window.isOpen() && !juegoTerminado) {
-        sf::Time tiempoTranscurrido = reloj.getElapsedTime();
-
         procesarEventos();
-        actualizar(tiempoTranscurrido);
+        actualizar(reloj.getElapsedTime());
         dibujar();
         verificarCondicionesVictoria();
     }
@@ -108,271 +134,203 @@ void Interfaz::iniciarVentana() {
 void Interfaz::procesarEventos() {
     sf::Event event{};
     while (window.pollEvent(event)) {
-        if (event.type == sf::Event::Closed) {
-            window.close();
+        switch (event.type) {
+            case sf::Event::Closed:
+                window.close();
+                break;
+            case sf::Event::MouseButtonPressed:
+                if (event.mouseButton.button == sf::Mouse::Left) {
+                    manejarClicIzquierdo(event.mouseButton.x, event.mouseButton.y);
+                } else if (event.mouseButton.button == sf::Mouse::Right) {
+                    manejarClickDerecho(event.mouseButton.x, event.mouseButton.y);
+                }
+                break;
         }
-        if (event.type == sf::Event::MouseButtonPressed) {
-            if (event.mouseButton.button == sf::Mouse::Left) {
-                manejarClicIzquierdo(event.mouseButton.x, event.mouseButton.y);
-            }
-            else if (event.mouseButton.button == sf::Mouse::Right) {
-                manejarClickDerecho(event.mouseButton.x, event.mouseButton.y);
-            }
-        }
-
     }
 }
 
+void Interfaz::manejarClicIzquierdo(int x, int y) {
+    if (powerUpButton.getGlobalBounds().contains(static_cast<float>(x), static_cast<float>(y))) {
+        selectedPowerUp = nullptr;
+        isShooting = false;
+        esperandoDestino = false;
+        return;
+    }
 
+    // Verificar clic en power-up
+    PowerUp* clickedPowerUp = obtenerPowerUpEnPosicion(static_cast<float>(x), static_cast<float>(y));
+    if (clickedPowerUp) {
+        clickedPowerUp->activar();
+        cambiarTurno();
+        return;
+    }
+
+    // Verificar clic en botones
+    if (shootButton.getGlobalBounds().contains(static_cast<float>(x), static_cast<float>(y))) {
+        isShooting = true;
+    }
+    else if (moveButton.getGlobalBounds().contains(static_cast<float>(x), static_cast<float>(y))) {
+        if (selectedTank != nullptr && selectedTank->getSalud() > 0) {
+            esperandoDestino = true;
+        }
+    }
+    else if (isShooting) {
+        manejarDisparo(x, y);
+        isShooting = false;
+    }
+    else if (esperandoDestino) {
+        sf::Vector2i coordsMapa = obtenerCoordenadasMapa(static_cast<float>(x), static_cast<float>(y));
+        if (coordsMapa.x >= 0 && coordsMapa.x < mapa.getFilas() &&
+            coordsMapa.y >= 0 && coordsMapa.y < mapa.getColumnas()) {
+            realizarMovimiento(coordsMapa.x, coordsMapa.y);
+        }
+        esperandoDestino = false;
+    }
+    else {
+        sf::Vector2i coordsMapa = obtenerCoordenadasMapa(static_cast<float>(x), static_cast<float>(y));
+        if (coordsMapa.x >= 0 && coordsMapa.x < mapa.getFilas() &&
+            coordsMapa.y >= 0 && coordsMapa.y < mapa.getColumnas()) {
+            manejarSeleccionTanque(coordsMapa.x, coordsMapa.y);
+        }
+    }
+}
+
+void Interfaz::realizarMovimiento(int destinoX, int destinoY) {
+    if (!selectedTank || selectedTank->getSalud() <= 0) return;
+
+    std::vector<PowerUp>& powerUps = turnoJugador1 ? powerUpsJugador1 : powerUpsJugador2;
+    std::vector<std::pair<int, int>> ruta = selectedTank->calcularRuta(mapa, destinoX, destinoY, powerUps);
+
+    if (!ruta.empty()) {
+        dibujarRutaTanque(ruta);
+        for (const auto& pos : ruta) {
+            selectedTank->setPos(pos.first, pos.second);
+            dibujar();
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        }
+    }
+
+    cambiarTurno();
+}
 
 void Interfaz::actualizar(sf::Time tiempoTranscurrido) {
+    // Actualizar animación de bala
     if (!trayectoriaBala.empty() && indiceAnimacionBala < trayectoriaBala.size()) {
-        if (relojAnimacion.getElapsedTime().asMilliseconds() > 50) { // Ajusta la velocidad de la animación
+        if (relojAnimacion.getElapsedTime().asMilliseconds() > 50) {
             balaSprite.setPosition(trayectoriaBala[indiceAnimacionBala]);
             indiceAnimacionBala++;
             relojAnimacion.restart();
         }
     }
-}
 
-void Interfaz::actualizarInterfaz() {
-    // Update turn text
-    currentTurnText.setString("Turno: " + (turnoJugador1 ? nombreJugador1 : nombreJugador2));
+    // Actualizar power-ups
+    std::vector<PowerUp>& powerUps = turnoJugador1 ? powerUpsJugador1 : powerUpsJugador2;
+    PowerUp::actualizarPowerUps(powerUps);
+    PowerUp::generarPowerUpAleatorio(powerUps, tiempoTranscurrido.asSeconds(), tiempoUltimoPowerUp);
 
-    // Update game timer
-    sf::Time tiempoRestante = sf::seconds(300) - gameTimer.getElapsedTime();
-    int minutos = static_cast<int>(tiempoRestante.asSeconds()) / 60;
-    int segundos = static_cast<int>(tiempoRestante.asSeconds()) % 60;
-    textoTiempo.setString("Tiempo: " + std::to_string(minutos) + ":" +
-                          (segundos < 10 ? "0" : "") + std::to_string(segundos));
-}
-
-void Interfaz::manejarSeleccionTanque(int x, int y) {
-    float tileSize = static_cast<float>(window.getSize().x) / static_cast<float>(mapa.getColumnas());
-    int fila = static_cast<int>(static_cast<float>(y) / tileSize);
-    int columna = static_cast<int>(static_cast<float>(x) / tileSize);
-
-    for (auto& tanque : (turnoJugador1 ? tanquesJugador1 : tanquesJugador2)) {
-        if (tanque.getX() == fila && tanque.getY() == columna && tanque.getSalud() > 0) {
-            selectedTank = &tanque;
-            return;
-        }
-    }
-    selectedTank = nullptr;
-}
-void Interfaz::manejarMovimiento(int destinoX, int destinoY) {
-    if (selectedTank == nullptr || selectedTank->getSalud() <= 0) {
-        std::cout << "No se puede mover: tanque no seleccionado o destruido" << std::endl;
-        return;
-    }
-
-    // Verifica si la posición de destino está dentro del mapa y no es un obstáculo
-    if (destinoX < 0 || destinoX >= mapa.getFilas() ||
-        destinoY < 0 || destinoY >= mapa.getColumnas() ||
-        mapa.hayObstaculo(destinoX, destinoY)) {
-        std::cout << "Movimiento inválido: fuera de límites o posición con obstáculo" << std::endl;
-        return;
-
-        }
-
-    // Establecer el destino y mover el tanque
-    selectedTank->setPos(destinoX, destinoY);
-    selectedTank->mover(mapa);
-}
-
-void Interfaz::manejarDisparo(int destinoX, int destinoY) {
-        if (selectedTank == nullptr || selectedTank->getSalud() <= 0) {
-            std::cout << "No se puede disparar: tanque no seleccionado o destruido" << std::endl;
-            return;
-        }
-
-        std::cout << "Disparo realizado a (" << destinoX << ", " << destinoY << ")" << std::endl;
-        float tileSize = static_cast<float>(window.getSize().x) / static_cast<float>(mapa.getColumnas());
-        sf::Vector2f inicio(static_cast<float>(selectedTank->getY()) * tileSize + tileSize / 2.0f, static_cast<float>(selectedTank->getX()) * tileSize + tileSize / 2.0f);
-        sf::Vector2f destino(static_cast<float>(destinoX), static_cast<float>(destinoY));
-
-        std::vector<sf::Vector2f> trayectoria = calcularTrayectoria(inicio, destino);
-        dibujarTrayectoriaBala(trayectoria);
-
-        // Aplicar daño si la bala golpea a un tanque
-        for (auto& tanque : (turnoJugador1 ? tanquesJugador2 : tanquesJugador1)) {
-            sf::Vector2f posTanque(static_cast<float>(tanque.getY()) * tileSize + tileSize / 2.0f, static_cast<float>(tanque.getX()) * tileSize + tileSize / 2.0f);
-            if (balaGolpeaTanque(trayectoria, posTanque)) {
-                int danio = calcularDanio(selectedTank->getColor(), tanque.getColor());
-                tanque.recibirDanio(danio);
-                break; // La bala solo golpea al primer tanque que encuentra
-            }
-        }
-
-        // La bala puede dañar al tanque que la disparó
-        sf::Vector2f posTanqueDisparo(static_cast<float>(selectedTank->getY()) * tileSize + tileSize / 2.0f, static_cast<float>(selectedTank->getX()) * tileSize + tileSize / 2.0f);
-        if (balaGolpeaTanque(trayectoria, posTanqueDisparo)) {
-            int danio = calcularDanio(selectedTank->getColor(), selectedTank->getColor());
-            selectedTank->recibirDanio(danio);
-        }
-
-        verificarCondicionesVictoria();
-        if (!juegoTerminado) {
-            cambiarTurno();
-        }
-    }
-
-std::vector<sf::Vector2f> Interfaz::calcularTrayectoria(sf::Vector2f inicio, sf::Vector2f destino) {
-    std::vector<sf::Vector2f> trayectoria;
-    trayectoria.push_back(inicio);
-
-    sf::Vector2f direccion = destino - inicio;
-    float longitud = std::sqrt(direccion.x * direccion.x + direccion.y * direccion.y);
-    direccion /= longitud;
-
-    sf::Vector2f posActual = inicio;
-    int maxRebotes = 3; // Maximum number of rebounds
-    int rebotesActuales = 0;
-
-    while (rebotesActuales <= maxRebotes) {
-        sf::Vector2f siguientePosicion = posActual + direccion * 10.0f; // Move in small steps
-
-        float tileSize = static_cast<float>(window.getSize().x) / static_cast<float>(mapa.getColumnas());
-
-        // Check collision with obstacles
-        int filaObstaculo = static_cast<int>(siguientePosicion.y / tileSize);
-        int columnaObstaculo = static_cast<int>(siguientePosicion.x / tileSize);
-
-        if (mapa.hayObstaculo(filaObstaculo, columnaObstaculo)) {
-            // Calculate rebound
-            sf::Vector2f normal;
-            if (std::abs(siguientePosicion.x - posActual.x) > std::abs(siguientePosicion.y - posActual.y)) {
-                normal = sf::Vector2f(1, 0);
-            } else {
-                normal = sf::Vector2f(0, 1);
-            }
-            direccion = direccion - 2.0f * (direccion.x * normal.x + direccion.y * normal.y) * normal;
-            rebotesActuales++;
-            if (rebotesActuales > maxRebotes) break;
-        }
-
-        posActual = siguientePosicion;
-        trayectoria.push_back(posActual);
-
-        // Check if we've reached the destination
-        if (longitud <= 5.0f) break;
-        longitud -= 10.0f;
-    }
-
-    return trayectoria;
-}
-
-
-bool Interfaz::balaGolpeaTanque(const std::vector<sf::Vector2f>& trayectoria, sf::Vector2f posTanque) {
-    float tileSize = static_cast<float>(window.getSize().x) / static_cast<float>(mapa.getColumnas());
-    return std::ranges::any_of(trayectoria, [&](const sf::Vector2f& punto) {
-        return distancia(punto, posTanque) < tileSize / 2;
-    });
-}
-
-
-float Interfaz::distancia(sf::Vector2f a, sf::Vector2f b) {
-    return std::sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
-}
-
-
-int Interfaz::calcularDanio(Tank::Color colorAtacante, Tank::Color colorDefensor) {
-    if (colorDefensor == Tank::CELESTE || colorDefensor == Tank::AZUL) {
-        return 25;
-    } else if (colorDefensor == Tank::AMARILLO || colorDefensor == Tank::ROJO) {
-        return 50;
-    }
-    return 0; // No debería llegar aquí
-}
-
-void Interfaz::cambiarTurno() {
-    turnoJugador1 = !turnoJugador1;
-    limpiarTrazos();
-    selectedTank = nullptr;
-}
-
-void Interfaz::dibujarTrayectoriaBala(const std::vector<sf::Vector2f>& trayectoria) {
-    trayectoriaBala = trayectoria;
-    lineaTrayectoria.clear();
-    for (const auto& punto : trayectoria) {
-        lineaTrayectoria.append(sf::Vertex(punto, sf::Color::Yellow));
-    }
-    indiceAnimacionBala = 0;
-    relojAnimacion.restart();
-}
-
-void Interfaz::limpiarTrazos() {
-    trazosDisparos.clear();
+    actualizarInterfaz();
 }
 
 void Interfaz::dibujar() {
     window.clear(sf::Color::Black);
 
+    // Aplicar escala
+    float scale = calculateScale();
+    sf::View view = window.getDefaultView();
+    view.setSize(1000 * scale, 800 * scale);
+    view.setCenter(500 * scale, 400 * scale);
+    window.setView(view);
+
+    // Dibujar elementos del juego
     window.draw(fondoSprite);
     dibujarMapa();
     dibujarTanques();
     dibujarHUD();
 
-    // Draw shoot button
+    // Dibujar power-ups
+    std::vector<PowerUp>& powerUps = turnoJugador1 ? powerUpsJugador1 : powerUpsJugador2;
+    float yOffset = 200.0f;
+    for (auto& powerUp : powerUps) {
+        powerUp.dibujar(window, font, 20.0f, yOffset);
+        yOffset += 50.0f;
+    }
+
+    // Dibujar botones
     window.draw(shootButton);
     window.draw(shootButtonText);
-    window.draw(moveButton);         // Dibuja el botón de mover
+    window.draw(moveButton);
     window.draw(moveButtonText);
+    window.draw(powerUpButton);
+    window.draw(powerUpButtonText);
 
-
-    // Draw selected tank indicator
-    if (selectedTank != nullptr) {
-        // Definir tileSize aquí
-        float tileSize = static_cast<float>(window.getSize().x) / static_cast<float>(mapa.getColumnas());
-
-        sf::CircleShape selector(10);
-        selector.setFillColor(sf::Color::Green);
-        selector.setPosition(static_cast<float>(selectedTank->getY()) * tileSize, static_cast<float>(selectedTank->getX()) * tileSize);
-        window.draw(selector);
+    // Dibujar elementos de juego activos
+    if (selectedTank) {
+        dibujarIndicadorSeleccion();
     }
 
     window.draw(lineaTrayectoria);
+    window.draw(trazadoRuta);
+
     if (!trayectoriaBala.empty() && indiceAnimacionBala < trayectoriaBala.size()) {
         window.draw(balaSprite);
-    }
-
-    for (const auto& trazo : trazosDisparos) {
-        window.draw(trazo);
-    }
-
-    for (const auto& bala : balas) {
-        window.draw(bala);
     }
 
     dibujarInfoDanio();
     window.display();
 }
 
-void Interfaz::dibujarInfoDanio() {
-    float tileSize = static_cast<float>(window.getSize().x) / static_cast<float>(mapa.getColumnas());
-    sf::Text textoSalud;
-    textoSalud.setFont(font);
-    textoSalud.setCharacterSize(12);
+void Interfaz::dibujarIndicadorSeleccion() {
+    float tileSize = getTileSize();
+    sf::CircleShape selector(tileSize / 4.0f);
+    selector.setFillColor(sf::Color(0, 255, 0, 128));
+    selector.setPosition(
+        posicionMapa.x + (static_cast<float>(selectedTank->getY()) * tileSize) + (tileSize / 2.0f) - selector.getRadius(),
+        posicionMapa.y + (static_cast<float>(selectedTank->getX()) * tileSize) + (tileSize / 2.0f) - selector.getRadius()
+    );
+    window.draw(selector);
+}
 
-    auto dibujarSaludTanque = [&](const Tank& tanque) {
-        textoSalud.setPosition(static_cast<float>(tanque.getY()) * tileSize, static_cast<float>(tanque.getX()) * tileSize - 20.0f);
-        textoSalud.setString(std::to_string(tanque.getSalud()) + "%");
-        window.draw(textoSalud);
-    };
+void Interfaz::cambiarTurno() {
+    std::vector<PowerUp>& powerUps = turnoJugador1 ? powerUpsJugador1 : powerUpsJugador2;
+    if (!PowerUp::tienePowerUpActivo(powerUps, PowerUp::DOBLE_TURNO)) {
+        turnoJugador1 = !turnoJugador1;
+    }
 
-    for (const auto& tanque : tanquesJugador1) dibujarSaludTanque(tanque);
-    for (const auto& tanque : tanquesJugador2) dibujarSaludTanque(tanque);
+    limpiarEstadoTurno();
+}
+
+void Interfaz::limpiarEstadoTurno() {
+    limpiarTrazos();
+    trazadoRuta.clear();
+    selectedTank = nullptr;
+    selectedPowerUp = nullptr;
+    isShooting = false;
+    esperandoDestino = false;
 }
 
 void Interfaz::dibujarMapa() {
-    float tileSize = static_cast<float>(window.getSize().x) / static_cast<float>(mapa.getColumnas());
+    float tileSize = getTileSize();
 
+    // Dibujar el borde del mapa
+    sf::RectangleShape borde;
+    borde.setSize(sf::Vector2f(
+        tileSize * static_cast<float>(mapa.getColumnas()),
+        tileSize * static_cast<float>(mapa.getFilas())
+    ));
+    borde.setPosition(posicionMapa.x, posicionMapa.y);
+    borde.setFillColor(sf::Color::Transparent);
+    borde.setOutlineThickness(7.0f);
+    borde.setOutlineColor(sf::Color::White);
+    window.draw(borde);
+
+    // Dibujar los obstáculos
     for (int i = 0; i < mapa.getFilas(); ++i) {
         for (int j = 0; j < mapa.getColumnas(); ++j) {
-
             if (mapa.hayObstaculo(i, j)) {
-
-                obstaculoSprite.setPosition(static_cast<float>(j) * tileSize, static_cast<float>(i) * tileSize);
+                obstaculoSprite.setPosition(
+                    posicionMapa.x + (static_cast<float>(j) * tileSize),
+                    posicionMapa.y + (static_cast<float>(i) * tileSize)
+                );
                 obstaculoSprite.setScale(
                     tileSize / static_cast<float>(obstaculoSprite.getTexture()->getSize().x),
                     tileSize / static_cast<float>(obstaculoSprite.getTexture()->getSize().y)
@@ -383,9 +341,8 @@ void Interfaz::dibujarMapa() {
     }
 }
 
-
 void Interfaz::dibujarTanques() {
-    float tileSize = static_cast<float>(window.getSize().x) / static_cast<float>(mapa.getColumnas());
+    float tileSize = getTileSize();
 
     auto dibujarTanque = [&](const Tank& tanque) {
         sf::Sprite sprite;
@@ -399,7 +356,10 @@ void Interfaz::dibujarTanques() {
                 case Tank::AMARILLO: sprite.setTexture(tanqueAmarilloTexture); break;
             }
         }
-        sprite.setPosition(static_cast<float>(tanque.getY()) * tileSize, static_cast<float>(tanque.getX()) * tileSize);
+        sprite.setPosition(
+            posicionMapa.x + (static_cast<float>(tanque.getY()) * tileSize),
+            posicionMapa.y + (static_cast<float>(tanque.getX()) * tileSize)
+        );
         sprite.setScale(
             tileSize / static_cast<float>(sprite.getTexture()->getSize().x),
             tileSize / static_cast<float>(sprite.getTexture()->getSize().y)
@@ -411,7 +371,193 @@ void Interfaz::dibujarTanques() {
     for (const auto& tanque : tanquesJugador2) dibujarTanque(tanque);
 }
 
+void Interfaz::dibujarHUD() {
+    float scale = calculateScale();
+
+    // Dibujar fondo del HUD
+    hudBackground.setSize(sf::Vector2f(1000 * scale, 60 * scale));
+    window.draw(hudBackground);
+
+    // Actualizar posiciones de texto
+    textoJugador1.setPosition(10 * scale, 10 * scale);
+    textoJugador2.setPosition(790 * scale, 10 * scale);
+    textoTurno.setPosition(400 * scale, 10 * scale);
+    textoTiempo.setPosition(400 * scale, 35 * scale);
+
+    // Actualizar contenido de texto
+    textoJugador1.setString("Jugador 1: " + nombreJugador1);
+    textoJugador2.setString("Jugador 2: " + nombreJugador2);
+    textoTurno.setString("Turno: " + (turnoJugador1 ? nombreJugador1 : nombreJugador2));
+
+    // Actualizar tiempo
+    sf::Time tiempoRestante = sf::seconds(300) - reloj.getElapsedTime();
+    int minutos = static_cast<int>(tiempoRestante.asSeconds()) / 60;
+    int segundos = static_cast<int>(tiempoRestante.asSeconds()) % 60;
+    textoTiempo.setString("Tiempo: " + std::to_string(minutos) + ":" +
+                         (segundos < 10 ? "0" : "") + std::to_string(segundos));
+
+    // Dibujar textos
+    window.draw(textoJugador1);
+    window.draw(textoJugador2);
+    window.draw(textoTurno);
+    window.draw(textoTiempo);
+}
+
+void Interfaz::dibujarInfoDanio() {
+    float tileSize = getTileSize();
+    sf::Text textoSalud;
+    textoSalud.setFont(font);
+    textoSalud.setCharacterSize(12);
+    textoSalud.setFillColor(sf::Color::White);
+
+    auto dibujarSaludTanque = [&](const Tank& tanque) {
+        textoSalud.setPosition(
+            posicionMapa.x + (static_cast<float>(tanque.getY()) * tileSize),
+            posicionMapa.y + (static_cast<float>(tanque.getX()) * tileSize - 20.0f)
+        );
+        textoSalud.setString(std::to_string(tanque.getSalud()) + "%");
+
+        sf::RectangleShape fondoTexto;
+        sf::FloatRect bounds = textoSalud.getLocalBounds();
+        fondoTexto.setSize(sf::Vector2f(bounds.width + 4, bounds.height + 4));
+        fondoTexto.setPosition(textoSalud.getPosition());
+        fondoTexto.setFillColor(sf::Color(0, 0, 0, 150));
+
+        window.draw(fondoTexto);
+        window.draw(textoSalud);
+    };
+
+    for (const auto& tanque : tanquesJugador1) dibujarSaludTanque(tanque);
+    for (const auto& tanque : tanquesJugador2) dibujarSaludTanque(tanque);
+}
+
+void Interfaz::verificarCondicionesVictoria() {
+    auto todosDestruidos = [](const std::vector<Tank>& tanques) {
+        return std::all_of(tanques.begin(), tanques.end(),
+                          [](const Tank& t) { return t.getSalud() <= 0; });
+    };
+
+    auto contarVivos = [](const std::vector<Tank>& tanques) {
+        return std::count_if(tanques.begin(), tanques.end(),
+                           [](const Tank& t) { return t.getSalud() > 0; });
+    };
+
+    if (todosDestruidos(tanquesJugador1)) {
+        mostrarPantallaVictoria(nombreJugador2);
+        juegoTerminado = true;
+    } else if (todosDestruidos(tanquesJugador2)) {
+        mostrarPantallaVictoria(nombreJugador1);
+        juegoTerminado = true;
+    } else if (reloj.getElapsedTime().asSeconds() >= 300) {
+        int vivosJ1 = contarVivos(tanquesJugador1);
+        int vivosJ2 = contarVivos(tanquesJugador2);
+
+        if (vivosJ1 > vivosJ2) {
+            mostrarPantallaVictoria(nombreJugador1);
+        } else if (vivosJ2 > vivosJ1) {
+            mostrarPantallaVictoria(nombreJugador2);
+        } else {
+            mostrarPantallaVictoria("Empate");
+        }
+        juegoTerminado = true;
+    }
+}
+
+void Interfaz::mostrarPantallaVictoria(const std::string& ganador) {
+    sf::Text textoVictoria;
+    textoVictoria.setFont(font);
+    textoVictoria.setCharacterSize(40);
+    textoVictoria.setFillColor(sf::Color::Yellow);
+    textoVictoria.setString(ganador == "Empate" ? "¡Empate!" : "¡" + ganador + " ha ganado!");
+
+    textoVictoria.setPosition(
+        (static_cast<float>(window.getSize().x) - textoVictoria.getLocalBounds().width) / 2.0f,
+        (static_cast<float>(window.getSize().y) - textoVictoria.getLocalBounds().height) / 2.0f - 50.0f
+    );
+
+    sf::RectangleShape botonNuevaPartida;
+    botonNuevaPartida.setSize(sf::Vector2f(200, 50));
+    botonNuevaPartida.setFillColor(sf::Color::White);
+    botonNuevaPartida.setPosition(
+        (static_cast<float>(window.getSize().x) - 200.0f) / 2.0f,
+        textoVictoria.getPosition().y + 100.0f
+    );
+
+    sf::Text textoBoton;
+    textoBoton.setFont(font);
+    textoBoton.setString("Nueva Partida");
+    textoBoton.setCharacterSize(24);
+    textoBoton.setFillColor(sf::Color::Black);
+    textoBoton.setPosition(
+        botonNuevaPartida.getPosition().x + (200.0f - textoBoton.getLocalBounds().width) / 2.0f,
+        botonNuevaPartida.getPosition().y + (50.0f - textoBoton.getLocalBounds().height) / 2.0f
+    );
+
+    while (window.isOpen()) {
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed) {
+                window.close();
+                return;
+            }
+            if (event.type == sf::Event::MouseButtonPressed) {
+                if (event.mouseButton.button == sf::Mouse::Left) {
+                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+                    if (botonNuevaPartida.getGlobalBounds().contains(
+                            static_cast<float>(mousePos.x),
+                            static_cast<float>(mousePos.y))) {
+                        window.close();
+                        Juego nuevoJuego;
+                        nuevoJuego.iniciar();
+                        return;
+                    }
+                }
+            }
+        }
+
+        window.clear();
+        window.draw(textoVictoria);
+        window.draw(botonNuevaPartida);
+        window.draw(textoBoton);
+        window.display();
+    }
+}
+
+float Interfaz::calculateScale() {
+    sf::Vector2u windowSize = window.getSize();
+    float scaleX = static_cast<float>(windowSize.x) / 1000.0f;
+    float scaleY = static_cast<float>(windowSize.y) / 800.0f;
+    return std::min(scaleX, scaleY);
+}
+
+void Interfaz::configurarTexto(sf::Text& texto, const std::string& contenido,
+                             unsigned int tamanio, float x, float y) {
+    texto.setFont(font);
+    texto.setString(contenido);
+    texto.setCharacterSize(tamanio);
+    texto.setFillColor(sf::Color::White);
+    texto.setPosition(x, y);
+}
+
+
+void Interfaz::actualizarInterfaz() {
+    currentTurnText.setString("Turno: " + (turnoJugador1 ? nombreJugador1 : nombreJugador2));
+
+    sf::Time tiempoRestante = sf::seconds(300) - gameTimer.getElapsedTime();
+    int minutos = static_cast<int>(tiempoRestante.asSeconds()) / 60;
+    int segundos = static_cast<int>(tiempoRestante.asSeconds()) % 60;
+    textoTiempo.setString("Tiempo: " + std::to_string(minutos) + ":" +
+                         (segundos < 10 ? "0" : "") + std::to_string(segundos));
+}
+
+void Interfaz::limpiarTrazos() {
+    trazosDisparos.clear();
+    trazadoRuta.clear();
+    rutaActual.clear();
+}
+
 void Interfaz::configurarHUD() {
+    float scale = calculateScale();
     textoJugador1.setFont(font);
     textoJugador1.setString(nombreJugador1);
     textoJugador1.setCharacterSize(22);
@@ -433,51 +579,189 @@ void Interfaz::configurarHUD() {
     textoTiempo.setCharacterSize(22);
     textoTiempo.setPosition(static_cast<float>(window.getSize().x) / 2 - 50, 40);
     textoTiempo.setFillColor(sf::Color::Black);
+
+    hudBackground.setSize(sf::Vector2f(1000 * scale, 60 * scale));
+    hudBackground.setFillColor(sf::Color(0, 0, 0, 180));
+
+    configurarTexto(textoJugador1, nombreJugador1, 22 * scale, 10 * scale, 10 * scale);
+    configurarTexto(textoJugador2, nombreJugador2, 22 * scale, 790 * scale, 10 * scale);
+    configurarTexto(textoTurno, "Turno: ", 22 * scale, 400 * scale, 10 * scale);
+    configurarTexto(textoTiempo, "Tiempo: 5:00", 22 * scale, 400 * scale, 35 * scale);
+
+    shootButton.setSize(sf::Vector2f(100 * scale, 40 * scale));
+    shootButton.setFillColor(sf::Color::Black);
+    shootButton.setPosition(880 * scale, 730 * scale);
+
+    moveButton.setSize(sf::Vector2f(100 * scale, 40 * scale));
+    moveButton.setFillColor(sf::Color::Black);
+    moveButton.setPosition(880 * scale, 680 * scale);
+
+    configurarTexto(shootButtonText, "Disparar", 20 * scale, 890 * scale, 735 * scale);
+    configurarTexto(moveButtonText, "Mover", 20 * scale, 900 * scale, 685 * scale);
 }
 
-void Interfaz::dibujarHUD() {
-    textoJugador1.setString("Jugador 1:"+ nombreJugador1);
-    window.draw(textoJugador1);
-    textoJugador2.setString("Jugador 2:"+ nombreJugador2);
-    window.draw(textoJugador2);
+void Interfaz::dibujarRutaTanque(const std::vector<std::pair<int, int>>& ruta) {
+    if (ruta.empty()) return;
 
-    textoTurno.setString("Turno: " + (turnoJugador1 ? nombreJugador1 : nombreJugador2));
-    window.draw(textoTurno);
+    float tileSize = getTileSize();
+    trazadoRuta.clear();
+    trazadoRuta.setPrimitiveType(sf::LinesStrip);
+    trazadoRuta.resize(ruta.size());
 
-    // Actualizar y dibujar el tiempo restante
-    sf::Time tiempoRestante = sf::seconds(300) - reloj.getElapsedTime();
-    int minutos = static_cast<int>(tiempoRestante.asSeconds()) / 60;
-    int segundos = static_cast<int>(tiempoRestante.asSeconds()) % 60;
-    textoTiempo.setString("Tiempo: " + std::to_string(minutos) + ":" +
-                          (segundos < 10 ? "0" : "") + std::to_string(segundos));
-    window.draw(textoTiempo);
+    for (size_t i = 0; i < ruta.size(); ++i) {
+        float x = posicionMapa.x + (static_cast<float>(ruta[i].second) + 0.5f) * tileSize;
+        float y = posicionMapa.y + (static_cast<float>(ruta[i].first) + 0.5f) * tileSize;
+        trazadoRuta.append(sf::Vertex(sf::Vector2f(x, y), sf::Color(255, 255, 0, 128)));
+    }
+
+    rutaActual = ruta;
 }
 
-void Interfaz::manejarClicIzquierdo(int x, int y) {
-    // Verificar si se presiona el botón de disparo
-    if (shootButton.getGlobalBounds().contains(static_cast<float>(x), static_cast<float>(y))) {
-        isShooting = true;  // Indica que se está en modo de disparo
+PowerUp* Interfaz::obtenerPowerUpEnPosicion(float x, float y) {
+    std::vector<PowerUp>& powerUps = turnoJugador1 ? powerUpsJugador1 : powerUpsJugador2;
+    float yOffset = 200.0f;
+    float xOffset = 20.0f;
+
+    for (auto& powerUp : powerUps) {
+        if (!powerUp.estaActivo()) {
+            sf::FloatRect bounds(xOffset, yOffset, 150, 40);
+            if (bounds.contains(x, y)) {
+                return &powerUp;
+            }
+            yOffset += 50.0f;
+        }
     }
-    // Verificar si se presiona el botón de mover
-    else if (moveButton.getGlobalBounds().contains(static_cast<float>(x), static_cast<float>(y))) {
-        // Si el botón de mover fue presionado, maneja el movimiento
-        manejarMovimiento(x, y); // Llama al método para mover el tanque
+    return nullptr;
+}
+
+void Interfaz::manejarDisparo(int destinoX, int destinoY) {
+    if (selectedTank == nullptr || selectedTank->getSalud() <= 0) {
+        std::cout << "No se puede disparar: tanque no seleccionado o destruido" << std::endl;
+        return;
     }
-    // Manejar el disparo si se estaba en modo de disparo
-    else if (isShooting) {
-        manejarDisparo(x, y);
-        isShooting = false; // Restablecer el estado de disparo
+
+    float tileSize = getTileSize();
+    sf::Vector2f inicio(
+        posicionMapa.x + (static_cast<float>(selectedTank->getY()) * tileSize + tileSize / 2.0f),
+        posicionMapa.y + (static_cast<float>(selectedTank->getX()) * tileSize + tileSize / 2.0f)
+    );
+    sf::Vector2f destino(static_cast<float>(destinoX), static_cast<float>(destinoY));
+
+    std::vector<sf::Vector2f> trayectoria = calcularTrayectoria(inicio, destino);
+    dibujarTrayectoriaBala(trayectoria);
+
+    std::vector<Tank>& tanquesEnemigos = turnoJugador1 ? tanquesJugador2 : tanquesJugador1;
+    bool impactoRegistrado = false;
+
+    for (auto& tanque : tanquesEnemigos) {
+        if (tanque.getSalud() <= 0) continue;
+
+        sf::Vector2f posTanque(
+            posicionMapa.x + (static_cast<float>(tanque.getY()) * tileSize + tileSize / 2.0f),
+            posicionMapa.y + (static_cast<float>(tanque.getX()) * tileSize + tileSize / 2.0f)
+        );
+
+        if (balaGolpeaTanque(trayectoria, posTanque)) {
+            tanque.recibirDanio(calcularDanio(selectedTank->getColor(), tanque.getColor()));
+            impactoRegistrado = true;
+            break;
+        }
     }
-    // Si no se presionaron los botones, manejar la selección del tanque
-    else {
-        manejarSeleccionTanque(x, y);
+
+    verificarCondicionesVictoria();
+    if (!juegoTerminado) {
+        cambiarTurno();
     }
+}
+
+std::vector<sf::Vector2f> Interfaz::calcularTrayectoria(sf::Vector2f inicio, sf::Vector2f destino) {
+    std::vector<PowerUp>& powerUps = turnoJugador1 ? powerUpsJugador1 : powerUpsJugador2;
+    bool tienePrecisionAtaque = std::any_of(powerUps.begin(), powerUps.end(),
+        [](const PowerUp& p) { return p.estaActivo() && p.getTipo() == PowerUp::PRECISION_ATAQUE; });
+
+    if (tienePrecisionAtaque) {
+        return PowerUp::calcularTrayectoriaAStar(inicio, destino, mapa, getTileSize(), posicionMapa);
+    }
+
+    std::vector<sf::Vector2f> trayectoria;
+    trayectoria.push_back(inicio);
+
+    sf::Vector2f direccion = destino - inicio;
+    float longitud = std::sqrt(direccion.x * direccion.x + direccion.y * direccion.y);
+    direccion /= longitud;
+
+    sf::Vector2f posActual = inicio;
+    int maxRebotes = 3;
+    int rebotesActuales = 0;
+
+    while (rebotesActuales <= maxRebotes) {
+        sf::Vector2f siguientePosicion = posActual + direccion * 10.0f;
+        float tileSize = getTileSize();
+
+        int filaObstaculo = static_cast<int>((siguientePosicion.y - posicionMapa.y) / tileSize);
+        int columnaObstaculo = static_cast<int>((siguientePosicion.x - posicionMapa.x) / tileSize);
+
+        bool colisionBorde = false;
+        sf::Vector2f normal(0, 0);
+
+        if (siguientePosicion.x < posicionMapa.x) {
+            normal = sf::Vector2f(1, 0);
+            colisionBorde = true;
+        }
+        else if (siguientePosicion.x > posicionMapa.x + mapa.getColumnas() * tileSize) {
+            normal = sf::Vector2f(-1, 0);
+            colisionBorde = true;
+        }
+        else if (siguientePosicion.y < posicionMapa.y) {
+            normal = sf::Vector2f(0, 1);
+            colisionBorde = true;
+        }
+        else if (siguientePosicion.y > posicionMapa.y + mapa.getFilas() * tileSize) {
+            normal = sf::Vector2f(0, -1);
+            colisionBorde = true;
+        }
+
+        bool colisionObstaculo = filaObstaculo >= 0 && filaObstaculo < mapa.getFilas() &&
+                                columnaObstaculo >= 0 && columnaObstaculo < mapa.getColumnas() &&
+                                mapa.hayObstaculo(filaObstaculo, columnaObstaculo);
+
+        if (colisionBorde || colisionObstaculo) {
+            if (colisionObstaculo) {
+                if (std::abs(siguientePosicion.x - posActual.x) > std::abs(siguientePosicion.y - posActual.y)) {
+                    normal = sf::Vector2f(1, 0);
+                } else {
+                    normal = sf::Vector2f(0, 1);
+                }
+            }
+
+            direccion = direccion - 2.0f * (direccion.x * normal.x + direccion.y * normal.y) * normal;
+            rebotesActuales++;
+
+            if (rebotesActuales > maxRebotes) break;
+        }
+
+        posActual = siguientePosicion;
+        trayectoria.push_back(posActual);
+
+        if (longitud <= 5.0f) break;
+        longitud -= 10.0f;
+    }
+
+    return trayectoria;
+}
+
+void Interfaz::manejarSeleccionTanque(int filaClick, int columnaClick) {
+    for (auto& tanque : (turnoJugador1 ? tanquesJugador1 : tanquesJugador2)) {
+        if (tanque.getX() == filaClick && tanque.getY() == columnaClick && tanque.getSalud() > 0) {
+            selectedTank = &tanque;
+            return;
+        }
+    }
+    selectedTank = nullptr;
 }
 
 void Interfaz::manejarClickDerecho(int x, int y) {
-    // Si estamos esperando el destino, procesar el movimiento
     if (esperandoDestino) {
-        // Convertir las coordenadas del click a coordenadas del mapa
         int filasMapa = mapa.getFilas();
         int columnasMapa = mapa.getColumnas();
         float tamañoCelda = static_cast<float>(window.getSize().x) / columnasMapa;
@@ -485,12 +769,11 @@ void Interfaz::manejarClickDerecho(int x, int y) {
         int mapaX = static_cast<int>(x / tamañoCelda);
         int mapaY = static_cast<int>(y / tamañoCelda);
 
-        manejarMovimiento(mapaX, mapaY);
+        realizarMovimiento(mapaX, mapaY);
         esperandoDestino = false;
         return;
     }
 
-    // Si se presiona el botón de mover
     if (moveButton.getGlobalBounds().contains(static_cast<float>(x), static_cast<float>(y))) {
         if (selectedTank != nullptr && selectedTank->getSalud() > 0) {
             esperandoDestino = true;
@@ -503,66 +786,45 @@ void Interfaz::manejarClickDerecho(int x, int y) {
     }
 }
 
-
-void Interfaz::verificarCondicionesVictoria() {
-    if (todosLosTanquesDestruidos(tanquesJugador1)) {
-        mostrarPantallaVictoria(nombreJugador2);
-        juegoTerminado = true;
-    } else if (todosLosTanquesDestruidos(tanquesJugador2)) {
-        mostrarPantallaVictoria(nombreJugador1);
-        juegoTerminado = true;
-    } else if (reloj.getElapsedTime().asSeconds() >= 300) { // 5 minutos
-        int tanquesVivosJ1 = contarTanquesVivos(tanquesJugador1);
-        int tanquesVivosJ2 = contarTanquesVivos(tanquesJugador2);
-        if (tanquesVivosJ1 > tanquesVivosJ2) {
-            mostrarPantallaVictoria(nombreJugador1);
-        } else if (tanquesVivosJ2 > tanquesVivosJ1) {
-            mostrarPantallaVictoria(nombreJugador2);
-        } else {
-            mostrarPantallaVictoria("Empate");
-        }
-        juegoTerminado = true;
+void Interfaz::dibujarTrayectoriaBala(const std::vector<sf::Vector2f>& trayectoria) {
+    trayectoriaBala = trayectoria;
+    lineaTrayectoria.clear();
+    for (const auto& punto : trayectoria) {
+        lineaTrayectoria.append(sf::Vertex(punto, sf::Color::Yellow));
     }
+    indiceAnimacionBala = 0;
+    relojAnimacion.restart();
 }
 
-bool Interfaz::todosLosTanquesDestruidos(const std::vector<Tank>& tanques) {
-    return std::all_of(tanques.begin(), tanques.end(), [](const Tank& t) { return t.getSalud() <= 0; });
+bool Interfaz::balaGolpeaTanque(const std::vector<sf::Vector2f>& trayectoria, sf::Vector2f posTanque) {
+    float tileSize = getTileSize();
+    float radioColision = tileSize / 3.0f;
 
-}
-
-int Interfaz::contarTanquesVivos(const std::vector<Tank>& tanques) {
-    int count = 0;
-    for (const auto& tanque : tanques) {
-        if (tanque.getSalud() > 0) {
-            count++;
+    for (const auto& punto : trayectoria) {
+        float dist = std::sqrt(
+            (punto.x - posTanque.x) * (punto.x - posTanque.x) +
+            (punto.y - posTanque.y) * (punto.y - posTanque.y)
+        );
+        if (dist < radioColision) {
+            return true;
         }
     }
-    return count;
+    return false;
 }
 
-void Interfaz::mostrarPantallaVictoria(const std::string& ganador) {
-    sf::Text textoVictoria;
-    textoVictoria.setFont(font);
-    textoVictoria.setCharacterSize(40);
-    textoVictoria.setFillColor(sf::Color::Yellow);
+int Interfaz::calcularDanio(Tank::Color colorAtacante, Tank::Color colorDefensor) {
+    std::vector<PowerUp>& powerUps = turnoJugador1 ? powerUpsJugador1 : powerUpsJugador2;
+    bool tienePowerAtaque = std::any_of(powerUps.begin(), powerUps.end(),
+        [](const PowerUp& p) { return p.estaActivo() && p.getTipo() == PowerUp::PODER_ATAQUE; });
 
-    if (ganador == "Empate") {
-        textoVictoria.setString("¡Empate!");
-    } else {
-        textoVictoria.setString("¡" + ganador + " ha ganado!");
+    if (tienePowerAtaque) {
+        return 100;
     }
 
-    textoVictoria.setPosition(
-    (static_cast<float>(window.getSize().x) - textoVictoria.getLocalBounds().width) / 2.0f,
-    (static_cast<float>(window.getSize().y) - textoVictoria.getLocalBounds().height) / 2.0f
-    );
-
-    window.clear();
-    window.draw(textoVictoria);
-    window.display();
-
-    sf::sleep(sf::seconds(5)); // Mostrar la pantalla de victoria por 5 segundos
+    if (colorDefensor == Tank::CELESTE || colorDefensor == Tank::AZUL) {
+        return 25;
+    } else if (colorDefensor == Tank::AMARILLO || colorDefensor == Tank::ROJO) {
+        return 50;
+    }
+    return 0;
 }
-
-
-
