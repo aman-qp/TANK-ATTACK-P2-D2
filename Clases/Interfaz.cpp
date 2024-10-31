@@ -37,33 +37,33 @@ Interfaz::Interfaz(Mapa& mapa, std::string nombre1, std::string nombre2,
 }
 
 void Interfaz::inicializarRecursos() {
-    if (!font.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/PixelifySans-VariableFont_wght.ttf")) {
+    if (!font.loadFromFile("/home/amanda/CLionProjects/Proyecto_2_D2/recursos/PixelifySans-VariableFont_wght.ttf")) {
         throw std::runtime_error("No se pudo cargar la fuente");
     }
 
     // Cargar texturas antes de crear los tanques
-    if (!tanqueAzulTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/tanqueAzul.png")) {
+    if (!tanqueAzulTexture.loadFromFile("/home/amanda/CLionProjects/Proyecto_2_D2/recursos/tanqueAzul.png")) {
         throw std::runtime_error("No se pudo cargar la textura del tanque azul");
     }
-    if (!tanqueRojoTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/tanqueRojo.png")) {
+    if (!tanqueRojoTexture.loadFromFile("/home/amanda/CLionProjects/Proyecto_2_D2/recursos/tanqueRojo.png")) {
         throw std::runtime_error("No se pudo cargar la textura del tanque rojo");
     }
-    if (!tanqueCelesteTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/tanqueCeleste.png")) {
+    if (!tanqueCelesteTexture.loadFromFile("/home/amanda/CLionProjects/Proyecto_2_D2/recursos/tanqueCeleste.png")) {
         throw std::runtime_error("No se pudo cargar la textura del tanque celeste");
     }
-    if (!tanqueAmarilloTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/tanqueAmarillo.png")) {
+    if (!tanqueAmarilloTexture.loadFromFile("/home/amanda/CLionProjects/Proyecto_2_D2/recursos/tanqueAmarillo.png")) {
         throw std::runtime_error("No se pudo cargar la textura del tanque amarillo");
     }
-    if (!tanqueDestruidoTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/explosion.png")) {
+    if (!tanqueDestruidoTexture.loadFromFile("/home/amanda/CLionProjects/Proyecto_2_D2/recursos/explosion.png")) {
         throw std::runtime_error("No se pudo cargar la textura del tanque destruido");
     }
-    if (!balaTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/bala.png")) {
+    if (!balaTexture.loadFromFile("/home/amanda/CLionProjects/Proyecto_2_D2/recursos/bala.png")) {
         throw std::runtime_error("No se pudo cargar la textura de la bala");
     }
-    if (!fondoTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/fondo.png")) {
+    if (!fondoTexture.loadFromFile("/home/amanda/CLionProjects/Proyecto_2_D2/recursos/fondo.png")) {
         throw std::runtime_error("No se pudo cargar la textura del fondo");
     }
-    if (!obstaculoTexture.loadFromFile("/home/mau/Escritorio/Proyecto ii Datos ii/TANK-ATTACK-P2-D2/recursos/muro.png")) {
+    if (!obstaculoTexture.loadFromFile("/home/amanda/CLionProjects/Proyecto_2_D2/recursos/muro.png")) {
         throw std::runtime_error("No se pudo cargar la textura del obstáculo");
     }
 
