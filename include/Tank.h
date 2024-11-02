@@ -44,7 +44,7 @@ private:
     std::vector<std::pair<int, int>> calcularRutaDijkstra(const Mapa& mapa, int inicioX, int inicioY,
                                                          int destinoX, int destinoY);
     std::vector<std::pair<int, int>> calcularRutaAleatoria(const Mapa& mapa, int inicioX, int inicioY,
-                                                          int destinoX, int destinoY);
+                                                          int destinoX, int destinoY) const;
     MovementType determinarTipoMovimiento(const std::vector<PowerUp>& powerUps) const;
 
     // Direcciones de movimiento

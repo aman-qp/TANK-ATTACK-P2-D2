@@ -30,8 +30,14 @@ void Juego::iniciar() {
     sf::Text nombre2("", font, 30);
     nombre2.setPosition(300, 300);
 
+    // Texto para mensajes de error
+    sf::Text mensajeError("", font, 24);
+    mensajeError.setFillColor(sf::Color::Red);
+    mensajeError.setPosition(100, 400);
+
     bool esJugador1 = true;
     std::string entradaNombre;
+    bool nombreJ1Confirmado = false;
 
     // Loop principal de la pantalla de nombres
     while (window.isOpen()) {
@@ -45,21 +51,40 @@ void Juego::iniciar() {
                 if (event.text.unicode == '\b') {  // Retroceso
                     if (!entradaNombre.empty())
                         entradaNombre.pop_back();
+                    mensajeError.setString("");  // Limpiar mensaje de error al editar
                 }
                 else if (event.text.unicode == '\r') {  // Enter
+                    // Validar que el nombre no esté vacío
+                    if (entradaNombre.empty()) {
+                        mensajeError.setString("El nombre no puede estar vacío");
+                        continue;
+                    }
+
                     if (esJugador1) {
                         nombreJugador1 = entradaNombre;
                         nombre1.setString(nombreJugador1);
+                        nombreJ1Confirmado = true;
                         entradaNombre.clear();
                         esJugador1 = false;
+                        mensajeError.setString("");
                     } else {
+                        // Validar que los nombres no sean iguales
+                        if (entradaNombre == nombreJugador1) {
+                            mensajeError.setString("Los nombres no pueden ser iguales");
+                            continue;
+                        }
                         nombreJugador2 = entradaNombre;
                         nombre2.setString(nombreJugador2);
-                        window.close();
+                        window.close();  // Cerrar ventana solo cuando ambos nombres son válidos
                     }
                 }
-                else {
-                    entradaNombre += static_cast<char>(event.text.unicode);
+                else if (entradaNombre.length() < 15) {  // Limitar longitud máxima
+                    char caracter = static_cast<char>(event.text.unicode);
+                    // Solo permitir letras, números y algunos caracteres especiales
+                    if (std::isalnum(caracter) || caracter == '_' || caracter == '-') {
+                        entradaNombre += caracter;
+                        mensajeError.setString("");  // Limpiar mensaje de error al editar
+                    }
                 }
             }
         }
@@ -77,6 +102,7 @@ void Juego::iniciar() {
         window.draw(nombre1);
         window.draw(texto2);
         window.draw(nombre2);
+        window.draw(mensajeError);
         window.display();
     }
 

@@ -21,17 +21,44 @@ Tank::MovementType Tank::determinarTipoMovimiento(const std::vector<PowerUp>& po
     std::uniform_int_distribution<> dis(1, 100);
     int probabilidad = dis(gen);
 
+    MovementType tipoElegido;
+    std::string colorStr;
+
+    // Determinar el color en string
+    switch(color) {
+        case AZUL: colorStr = "AZUL"; break;
+        case CELESTE: colorStr = "CELESTE"; break;
+        case ROJO: colorStr = "ROJO"; break;
+        case AMARILLO: colorStr = "AMARILLO"; break;
+    }
+
     if (color == AZUL || color == CELESTE) {
         if (tienePrecisionMovimiento) {
-            return probabilidad <= 90 ? BFS : RANDOM;
+            tipoElegido = probabilidad <= 90 ? BFS : RANDOM;
+        } else {
+            tipoElegido = probabilidad <= 50 ? BFS : RANDOM;
         }
-        return probabilidad <= 50 ? BFS : RANDOM;
     } else { // ROJO o AMARILLO
         if (tienePrecisionMovimiento) {
-            return probabilidad <= 90 ? DIJKSTRA : RANDOM;
+            tipoElegido = probabilidad <= 90 ? DIJKSTRA : RANDOM;
+        } else {
+            tipoElegido = probabilidad <= 80 ? DIJKSTRA : RANDOM;
         }
-        return probabilidad <= 80 ? DIJKSTRA : RANDOM;
     }
+
+    // Mostrar información en consola
+    std::cout << "\nMovimiento de tanque " << colorStr << ":" << std::endl;
+    std::cout << "- Tiene power-up de precisión: " << (tienePrecisionMovimiento ? "Sí" : "No") << std::endl;
+    std::cout << "- Probabilidad generada: " << probabilidad << std::endl;
+    std::cout << "- Algoritmo elegido: ";
+    switch(tipoElegido) {
+        case BFS: std::cout << "BFS"; break;
+        case DIJKSTRA: std::cout << "Dijkstra"; break;
+        case RANDOM: std::cout << "Aleatorio"; break;
+    }
+    std::cout << std::endl;
+
+    return tipoElegido;
 }
 
 std::vector<std::pair<int, int>> Tank::calcularRuta(const Mapa& mapa, int destinoX, int destinoY,
@@ -157,10 +184,129 @@ std::vector<std::pair<int, int>> Tank::calcularRutaDijkstra(const Mapa& mapa, in
 }
 
 std::vector<std::pair<int, int>> Tank::calcularRutaAleatoria(const Mapa& mapa, int inicioX, int inicioY,
-                                                            int destinoX, int destinoY) {
+                                                            int destinoX, int destinoY) const {
+    std::cout << "\nEjecutando movimiento aleatorio:" << std::endl;
     std::vector<std::pair<int, int>> ruta;
+
+    // Función para verificar línea vista
+    auto hayLineaVista = [&mapa](int x1, int y1, int x2, int y2) -> bool {
+        int dx = std::abs(x2 - x1);
+        int dy = std::abs(y2 - y1);
+        int x = x1;
+        int y = y1;
+        int n = 1 + dx + dy;
+        int x_inc = (x2 > x1) ? 1 : -1;
+        int y_inc = (y2 > y1) ? 1 : -1;
+        int error = dx - dy;
+        dx *= 2;
+        dy *= 2;
+
+        std::cout << "Verificando línea vista desde (" << x1 << "," << y1 << ") hasta ("
+                  << x2 << "," << y2 << ")" << std::endl;
+
+        for (; n > 0; --n) {
+            if (mapa.hayObstaculo(x, y)) {
+                std::cout << "Obstáculo encontrado en (" << x << "," << y << ")" << std::endl;
+                return false;
+            }
+            if (error > 0) {
+                x += x_inc;
+                error -= dy;
+            } else {
+                y += y_inc;
+                error += dx;
+            }
+        }
+        std::cout << "Línea vista disponible" << std::endl;
+        return true;
+    };
+
+    // Primer intento: línea vista directa
+    if (hayLineaVista(inicioX, inicioY, destinoX, destinoY)) {
+        ruta.push_back({inicioX, inicioY});
+        ruta.push_back({destinoX, destinoY});
+        return ruta;
+    }
+
+    // Si no hay línea vista, calculamos posición aleatoria en radio
+    const int RADIO_MOVIMIENTO = 3; // Puedes ajustar este valor
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    // Generar posición aleatoria en radio
+    auto generarPosicionAleatoria = [&]() -> std::pair<int, int> {
+        std::uniform_int_distribution<> dis(-RADIO_MOVIMIENTO, RADIO_MOVIMIENTO);
+        int intentos = 0;
+        const int MAX_INTENTOS = 20;
+
+        while (intentos < MAX_INTENTOS) {
+            int dx = dis(gen);
+            int dy = dis(gen);
+            int nuevaX = inicioX + dx;
+            int nuevaY = inicioY + dy;
+
+            // Verificar que la posición es válida
+            if (nuevaX >= 0 && nuevaX < mapa.getFilas() &&
+                nuevaY >= 0 && nuevaY < mapa.getColumnas() &&
+                !mapa.hayObstaculo(nuevaX, nuevaY)) {
+
+                std::cout << "Posición aleatoria generada: (" << nuevaX << "," << nuevaY << ")" << std::endl;
+                return {nuevaX, nuevaY};
+            }
+            intentos++;
+        }
+        // Si no encontramos posición válida, retornamos la posición actual
+        return {inicioX, inicioY};
+    };
+
+    // Obtener posición aleatoria intermedia
+    auto [posIntermediaX, posIntermediaY] = generarPosicionAleatoria();
+
+    // Agregar primer movimiento a la posición intermedia
     ruta.push_back({inicioX, inicioY});
-    ruta.push_back({destinoX, destinoY});
+    ruta.push_back({posIntermediaX, posIntermediaY});
+
+    // Segundo intento: línea vista desde posición intermedia
+    if (hayLineaVista(posIntermediaX, posIntermediaY, destinoX, destinoY)) {
+        ruta.push_back({destinoX, destinoY});
+    } else {
+        // Si falla el segundo intento, encontrar el punto más cercano posible
+        std::cout << "Buscando punto más cercano posible al destino" << std::endl;
+        int mejorX = posIntermediaX;
+        int mejorY = posIntermediaY;
+        double mejorDistancia = std::numeric_limits<double>::max();
+
+        // Buscar en un área alrededor de la posición intermedia
+        for (int dx = -2; dx <= 2; dx++) {
+            for (int dy = -2; dy <= 2; dy++) {
+                int testX = posIntermediaX + dx;
+                int testY = posIntermediaY + dy;
+
+                if (testX >= 0 && testX < mapa.getFilas() &&
+                    testY >= 0 && testY < mapa.getColumnas() &&
+                    !mapa.hayObstaculo(testX, testY)) {
+
+                    double distancia = std::sqrt(
+                        std::pow(testX - destinoX, 2) +
+                        std::pow(testY - destinoY, 2)
+                    );
+
+                    if (distancia < mejorDistancia &&
+                        hayLineaVista(posIntermediaX, posIntermediaY, testX, testY)) {
+                        mejorDistancia = distancia;
+                        mejorX = testX;
+                        mejorY = testY;
+                    }
+                }
+            }
+        }
+
+        if (mejorX != posIntermediaX || mejorY != posIntermediaY) {
+            ruta.push_back({mejorX, mejorY});
+            std::cout << "Punto más cercano encontrado: (" << mejorX << "," << mejorY << ")" << std::endl;
+        }
+    }
+
     return ruta;
 }
 

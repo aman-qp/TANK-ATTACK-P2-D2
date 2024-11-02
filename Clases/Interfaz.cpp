@@ -199,16 +199,26 @@ void Interfaz::realizarMovimiento(int destinoX, int destinoY) {
     if (!selectedTank || selectedTank->getSalud() <= 0) return;
 
     std::vector<PowerUp>& powerUps = turnoJugador1 ? powerUpsJugador1 : powerUpsJugador2;
+
+    std::cout << "\n=== Inicio de movimiento ===" << std::endl;
+    std::cout << "Posición inicial: (" << selectedTank->getX() << "," << selectedTank->getY() << ")" << std::endl;
+    std::cout << "Destino: (" << destinoX << "," << destinoY << ")" << std::endl;
+
     std::vector<std::pair<int, int>> ruta = selectedTank->calcularRuta(mapa, destinoX, destinoY, powerUps);
 
     if (!ruta.empty()) {
+        std::cout << "Ruta encontrada con " << ruta.size() << " pasos" << std::endl;
         dibujarRutaTanque(ruta);
         for (const auto& pos : ruta) {
             selectedTank->setPos(pos.first, pos.second);
             dibujar();
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
         }
+        std::cout << "Movimiento completado" << std::endl;
+    } else {
+        std::cout << "No se pudo encontrar una ruta válida" << std::endl;
     }
+    std::cout << "=== Fin de movimiento ===\n" << std::endl;
 
     cambiarTurno();
 }
@@ -650,9 +660,10 @@ void Interfaz::manejarDisparo(int destinoX, int destinoY) {
     std::vector<sf::Vector2f> trayectoria = calcularTrayectoria(inicio, destino);
     dibujarTrayectoriaBala(trayectoria);
 
-    std::vector<Tank>& tanquesEnemigos = turnoJugador1 ? tanquesJugador2 : tanquesJugador1;
     bool impactoRegistrado = false;
 
+    // Verificar impacto en tanques enemigos
+    std::vector<Tank>& tanquesEnemigos = turnoJugador1 ? tanquesJugador2 : tanquesJugador1;
     for (auto& tanque : tanquesEnemigos) {
         if (tanque.getSalud() <= 0) continue;
 
@@ -665,6 +676,26 @@ void Interfaz::manejarDisparo(int destinoX, int destinoY) {
             tanque.recibirDanio(calcularDanio(selectedTank->getColor(), tanque.getColor()));
             impactoRegistrado = true;
             break;
+        }
+    }
+
+    // Verificar impacto en el tanque que disparó (después de rebote)
+    if (!impactoRegistrado && trayectoria.size() > 2) {  // Solo si hay rebotes
+        sf::Vector2f posTanqueDisparo(
+            posicionMapa.x + (static_cast<float>(selectedTank->getY()) * tileSize + tileSize / 2.0f),
+            posicionMapa.y + (static_cast<float>(selectedTank->getX()) * tileSize + tileSize / 2.0f)
+        );
+
+        // Crear una trayectoria que excluya el punto de disparo y un pequeño margen
+        std::vector<sf::Vector2f> trayectoriaRebote;
+        size_t puntoInicio = std::min(size_t(3), trayectoria.size()); // Saltar los primeros puntos
+        trayectoriaRebote.insert(trayectoriaRebote.end(),
+                                trayectoria.begin() + puntoInicio,
+                                trayectoria.end());
+
+        if (!trayectoriaRebote.empty() && balaGolpeaTanque(trayectoriaRebote, posTanqueDisparo)) {
+            selectedTank->recibirDanio(calcularDanio(selectedTank->getColor(), selectedTank->getColor()));
+            impactoRegistrado = true;
         }
     }
 
@@ -800,12 +831,43 @@ bool Interfaz::balaGolpeaTanque(const std::vector<sf::Vector2f>& trayectoria, sf
     float tileSize = getTileSize();
     float radioColision = tileSize / 3.0f;
 
-    for (const auto& punto : trayectoria) {
-        float dist = std::sqrt(
-            (punto.x - posTanque.x) * (punto.x - posTanque.x) +
-            (punto.y - posTanque.y) * (punto.y - posTanque.y)
+    // Para cada segmento de la trayectoria
+    for (size_t i = 0; i < trayectoria.size() - 1; ++i) {
+        sf::Vector2f puntoActual = trayectoria[i];
+        sf::Vector2f puntoSiguiente = trayectoria[i + 1];
+
+        // Calcular el vector dirección del segmento
+        sf::Vector2f direccion = puntoSiguiente - puntoActual;
+        float longitudSegmento = std::sqrt(direccion.x * direccion.x + direccion.y * direccion.y);
+
+        if (longitudSegmento == 0) continue;
+
+        // Normalizar el vector dirección
+        direccion /= longitudSegmento;
+
+        // Vector del punto actual al tanque
+        sf::Vector2f alTanque = posTanque - puntoActual;
+
+        // Proyección del vector al tanque sobre la dirección del segmento
+        float proyeccion = alTanque.x * direccion.x + alTanque.y * direccion.y;
+
+        // Encontrar el punto más cercano en el segmento
+        sf::Vector2f puntoCercano;
+        if (proyeccion < 0) {
+            puntoCercano = puntoActual;
+        } else if (proyeccion > longitudSegmento) {
+            puntoCercano = puntoSiguiente;
+        } else {
+            puntoCercano = puntoActual + direccion * proyeccion;
+        }
+
+        // Calcular la distancia entre el punto más cercano y el tanque
+        float distancia = std::sqrt(
+            std::pow(puntoCercano.x - posTanque.x, 2) +
+            std::pow(puntoCercano.y - posTanque.y, 2)
         );
-        if (dist < radioColision) {
+
+        if (distancia < radioColision) {
             return true;
         }
     }
