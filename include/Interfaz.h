@@ -36,12 +36,6 @@ private:
 
     // Elementos de interfaz
     sf::Text currentTurnText;
-    sf::RectangleShape moveButton;
-    sf::Text moveButtonText;
-    sf::RectangleShape shootButton;
-    sf::RectangleShape powerUpButton;
-    sf::Text shootButtonText;
-    sf::Text powerUpButtonText;
     sf::Font font;
     sf::Text textoJugador1;
     sf::Text textoJugador2;
@@ -92,6 +86,9 @@ private:
     // Métodos de manejo de eventos
     void procesarEventos();
     void manejarClicIzquierdo(int x, int y);
+
+    void manejarClicDerecho(int x, int y);
+
     void manejarClickDerecho(int x, int y);
     void manejarSeleccionTanque(int x, int y);
     void manejarDisparo(int x, int y);
@@ -117,7 +114,6 @@ private:
 
     // Métodos de configuración
     void configurarHUD();
-    void configurarBotones();
     void inicializarRecursos();
     void configurarTexto(sf::Text& texto, const std::string& contenido, unsigned int tamanio, float x, float y);
     float getTileSize() const {

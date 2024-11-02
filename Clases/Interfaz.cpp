@@ -29,7 +29,6 @@ Interfaz::Interfaz(Mapa& mapa, std::string nombre1, std::string nombre2,
     tanquesJugador1 = tanques1;
     tanquesJugador2 = tanques2;
 
-    configurarBotones();
     configurarHUD();
 
     lineaTrayectoria.setPrimitiveType(sf::LineStrip);
@@ -81,43 +80,6 @@ void Interfaz::inicializarRecursos() {
     calcularDimensionesMapa();
 }
 
-void Interfaz::configurarBotones() {
-    float scale = calculateScale();
-
-    // Configurar botón de movimiento
-    moveButton.setSize(sf::Vector2f(100 * scale, 40 * scale));
-    moveButton.setFillColor(sf::Color::Black);
-    moveButton.setPosition(880 * scale, 680 * scale);
-
-    moveButtonText.setFont(font);
-    moveButtonText.setString("Mover");
-    moveButtonText.setCharacterSize(20 * scale);
-    moveButtonText.setFillColor(sf::Color::White);
-    moveButtonText.setPosition(900 * scale, 685 * scale);
-
-    // Configurar botón de disparo
-    shootButton.setSize(sf::Vector2f(100 * scale, 40 * scale));
-    shootButton.setFillColor(sf::Color::Black);
-    shootButton.setPosition(880 * scale, 730 * scale);
-
-    shootButtonText.setFont(font);
-    shootButtonText.setString("Disparar");
-    shootButtonText.setCharacterSize(20 * scale);
-    shootButtonText.setFillColor(sf::Color::White);
-    shootButtonText.setPosition(890 * scale, 735 * scale);
-
-    // Configurar botón de power-up
-    powerUpButton.setSize(sf::Vector2f(100 * scale, 40 * scale));
-    powerUpButton.setFillColor(sf::Color::Black);
-    powerUpButton.setPosition(880 * scale, 630 * scale);
-
-    powerUpButtonText.setFont(font);
-    powerUpButtonText.setString("Power-Up");
-    powerUpButtonText.setCharacterSize(20 * scale);
-    powerUpButtonText.setFillColor(sf::Color::White);
-    powerUpButtonText.setPosition(890 * scale, 635 * scale);
-}
-
 void Interfaz::iniciarVentana() {
     juegoTerminado = false;
     reloj.restart();
@@ -137,62 +99,52 @@ void Interfaz::procesarEventos() {
         switch (event.type) {
             case sf::Event::Closed:
                 window.close();
-                break;
+            break;
             case sf::Event::MouseButtonPressed:
                 if (event.mouseButton.button == sf::Mouse::Left) {
                     manejarClicIzquierdo(event.mouseButton.x, event.mouseButton.y);
                 } else if (event.mouseButton.button == sf::Mouse::Right) {
-                    manejarClickDerecho(event.mouseButton.x, event.mouseButton.y);
+                    manejarClicDerecho(event.mouseButton.x, event.mouseButton.y);
                 }
-                break;
+            break;
         }
     }
 }
 
 void Interfaz::manejarClicIzquierdo(int x, int y) {
-    if (powerUpButton.getGlobalBounds().contains(static_cast<float>(x), static_cast<float>(y))) {
-        selectedPowerUp = nullptr;
-        isShooting = false;
-        esperandoDestino = false;
-        return;
-    }
+    sf::Vector2i coordsMapa = obtenerCoordenadasMapa(static_cast<float>(x), static_cast<float>(y));
 
-    // Verificar clic en power-up
-    PowerUp* clickedPowerUp = obtenerPowerUpEnPosicion(static_cast<float>(x), static_cast<float>(y));
-    if (clickedPowerUp) {
-        clickedPowerUp->activar();
-        cambiarTurno();
-        return;
-    }
+    // Verificar si las coordenadas están dentro del mapa
+    if (coordsMapa.x >= 0 && coordsMapa.x < mapa.getFilas() &&
+        coordsMapa.y >= 0 && coordsMapa.y < mapa.getColumnas()) {
 
-    // Verificar clic en botones
-    if (shootButton.getGlobalBounds().contains(static_cast<float>(x), static_cast<float>(y))) {
-        isShooting = true;
-    }
-    else if (moveButton.getGlobalBounds().contains(static_cast<float>(x), static_cast<float>(y))) {
-        if (selectedTank != nullptr && selectedTank->getSalud() > 0) {
-            esperandoDestino = true;
+        // Intentar seleccionar un tanque
+        bool tanqueSeleccionado = false;
+        auto& tanquesActuales = turnoJugador1 ? tanquesJugador1 : tanquesJugador2;
+
+        for (auto& tanque : tanquesActuales) {
+            if (tanque.getX() == coordsMapa.x && tanque.getY() == coordsMapa.y && tanque.getSalud() > 0) {
+                selectedTank = &tanque;
+                tanqueSeleccionado = true;
+                std::cout << "Tanque seleccionado en (" << coordsMapa.x << "," << coordsMapa.y << ")" << std::endl;
+                break;
+            }
         }
-    }
-    else if (isShooting) {
-        manejarDisparo(x, y);
-        isShooting = false;
-    }
-    else if (esperandoDestino) {
-        sf::Vector2i coordsMapa = obtenerCoordenadasMapa(static_cast<float>(x), static_cast<float>(y));
-        if (coordsMapa.x >= 0 && coordsMapa.x < mapa.getFilas() &&
-            coordsMapa.y >= 0 && coordsMapa.y < mapa.getColumnas()) {
+
+        // Si no se seleccionó un tanque y hay uno seleccionado, mover
+        if (!tanqueSeleccionado && selectedTank && selectedTank->getSalud() > 0) {
+            std::cout << "Moviendo tanque a (" << coordsMapa.x << "," << coordsMapa.y << ")" << std::endl;
             realizarMovimiento(coordsMapa.x, coordsMapa.y);
         }
-        esperandoDestino = false;
-    }
-    else {
-        sf::Vector2i coordsMapa = obtenerCoordenadasMapa(static_cast<float>(x), static_cast<float>(y));
-        if (coordsMapa.x >= 0 && coordsMapa.x < mapa.getFilas() &&
-            coordsMapa.y >= 0 && coordsMapa.y < mapa.getColumnas()) {
-            manejarSeleccionTanque(coordsMapa.x, coordsMapa.y);
         }
+}
+
+void Interfaz::manejarClicDerecho(int x, int y) {
+    if (!selectedTank || selectedTank->getSalud() <= 0) {
+        std::cout << "No hay tanque seleccionado para disparar" << std::endl;
+        return;
     }
+    manejarDisparo(x, y);
 }
 
 void Interfaz::realizarMovimiento(int destinoX, int destinoY) {
@@ -265,14 +217,6 @@ void Interfaz::dibujar() {
         yOffset += 50.0f;
     }
 
-    // Dibujar botones
-    window.draw(shootButton);
-    window.draw(shootButtonText);
-    window.draw(moveButton);
-    window.draw(moveButtonText);
-    window.draw(powerUpButton);
-    window.draw(powerUpButtonText);
-
     // Dibujar elementos de juego activos
     if (selectedTank) {
         dibujarIndicadorSeleccion();
@@ -301,12 +245,12 @@ void Interfaz::dibujarIndicadorSeleccion() {
 }
 
 void Interfaz::cambiarTurno() {
+    limpiarEstadoTurno();
+
     std::vector<PowerUp>& powerUps = turnoJugador1 ? powerUpsJugador1 : powerUpsJugador2;
     if (!PowerUp::tienePowerUpActivo(powerUps, PowerUp::DOBLE_TURNO)) {
         turnoJugador1 = !turnoJugador1;
     }
-
-    limpiarEstadoTurno();
 }
 
 void Interfaz::limpiarEstadoTurno() {
@@ -597,17 +541,6 @@ void Interfaz::configurarHUD() {
     configurarTexto(textoJugador2, nombreJugador2, 22 * scale, 790 * scale, 10 * scale);
     configurarTexto(textoTurno, "Turno: ", 22 * scale, 400 * scale, 10 * scale);
     configurarTexto(textoTiempo, "Tiempo: 5:00", 22 * scale, 400 * scale, 35 * scale);
-
-    shootButton.setSize(sf::Vector2f(100 * scale, 40 * scale));
-    shootButton.setFillColor(sf::Color::Black);
-    shootButton.setPosition(880 * scale, 730 * scale);
-
-    moveButton.setSize(sf::Vector2f(100 * scale, 40 * scale));
-    moveButton.setFillColor(sf::Color::Black);
-    moveButton.setPosition(880 * scale, 680 * scale);
-
-    configurarTexto(shootButtonText, "Disparar", 20 * scale, 890 * scale, 735 * scale);
-    configurarTexto(moveButtonText, "Mover", 20 * scale, 900 * scale, 685 * scale);
 }
 
 void Interfaz::dibujarRutaTanque(const std::vector<std::pair<int, int>>& ruta) {
@@ -803,17 +736,6 @@ void Interfaz::manejarClickDerecho(int x, int y) {
         realizarMovimiento(mapaX, mapaY);
         esperandoDestino = false;
         return;
-    }
-
-    if (moveButton.getGlobalBounds().contains(static_cast<float>(x), static_cast<float>(y))) {
-        if (selectedTank != nullptr && selectedTank->getSalud() > 0) {
-            esperandoDestino = true;
-            std::cout << "Seleccione el destino para el tanque" << std::endl;
-        } else {
-            std::cout << "Seleccione un tanque válido primero" << std::endl;
-        }
-    } else {
-        manejarSeleccionTanque(x, y);
     }
 }
 
