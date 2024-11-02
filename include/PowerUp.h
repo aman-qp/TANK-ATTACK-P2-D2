@@ -26,6 +26,9 @@ public:
     static void generarPowerUpAleatorio(std::vector<PowerUp>& powerUps, float tiempoTranscurrido, float& tiempoUltimoPowerUp);
     static void actualizarPowerUps(std::vector<PowerUp>& powerUps);
     static void limpiarPowerUpsExpirados(std::vector<PowerUp>& powerUps);
+    bool estaEnCola() const { return enCola; }
+    void marcarEnCola(bool estado) { enCola = estado; }
+    bool gastado() const { return usado && !activo; }
 
     // Métodos de efectos
     static bool tienePowerUpActivo(const std::vector<PowerUp>& powerUps, Type tipo);
@@ -36,7 +39,7 @@ public:
                                                              sf::Vector2f posicionMapa);
 
     // Métodos de renderizado
-    void dibujar(sf::RenderWindow& window, const sf::Font& font, float x, float y, bool seleccionado = false) const;
+    void dibujar(sf::RenderWindow& window, const sf::Font& font, float x, float y, bool seleccionado = false, const std::string& nombreJugador = "") const;
     bool contienePunto(float x, float y, float posX, float posY) const;
 
     // Getters
@@ -57,6 +60,8 @@ private:
     Type tipo;
     bool activo;
     int turnosRestantes;
+    bool usado = false;
+    bool enCola = false;
     struct AStarNode {
         sf::Vector2f pos;
         float g;

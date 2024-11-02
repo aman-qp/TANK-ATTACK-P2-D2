@@ -9,7 +9,6 @@
 const int Tank::movimientos[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // Arriba, abajo, izquierda, derecha
 
 Tank::Tank(int x, int y, Color color) : x(x), y(y), color(color), salud(100) {
-    std::cout << "Creando tanque en posición (" << x << "," << y << ") con color " << color << std::endl;
 }
 
 Tank::MovementType Tank::determinarTipoMovimiento(const std::vector<PowerUp>& powerUps) const {
@@ -270,7 +269,7 @@ std::vector<std::pair<int, int>> Tank::calcularRutaAleatoria(const Mapa& mapa, i
     if (hayLineaVista(posIntermediaX, posIntermediaY, destinoX, destinoY)) {
         ruta.push_back({destinoX, destinoY});
     } else {
-        // Si falla el segundo intento, encontrar el punto más cercano posible
+        // Sí falla el segundo intento, encontrar el punto más cercano posible
         std::cout << "Buscando punto más cercano posible al destino" << std::endl;
         int mejorX = posIntermediaX;
         int mejorY = posIntermediaY;

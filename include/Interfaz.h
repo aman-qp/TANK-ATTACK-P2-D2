@@ -7,6 +7,7 @@
 #include "PowerUp.h"
 #include <vector>
 #include <string>
+#include <queue>
 
 class Interfaz {
 public:
@@ -75,6 +76,11 @@ private:
     // Power-ups
     std::vector<PowerUp> powerUpsJugador1;
     std::vector<PowerUp> powerUpsJugador2;
+    std::queue<PowerUp*> colaPowerUps;
+    bool powerUpConsumidoEsteTurno;
+    PowerUp* powerUpActivo;
+    std::queue<PowerUp::Type> powerUpsActivos;
+    bool turnoExtra;
 
     // Constantes de layout
     const float MARGEN_LATERAL = 40.0f;
@@ -86,9 +92,8 @@ private:
     // Métodos de manejo de eventos
     void procesarEventos();
     void manejarClicIzquierdo(int x, int y);
-
     void manejarClicDerecho(int x, int y);
-
+    void manejarActivacionPowerUp();
     void manejarClickDerecho(int x, int y);
     void manejarSeleccionTanque(int x, int y);
     void manejarDisparo(int x, int y);

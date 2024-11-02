@@ -11,20 +11,33 @@ PowerUp::PowerUp(Type tipo) : tipo(tipo), activo(false), turnosRestantes(0) {}
 
 void PowerUp::activar() {
     activo = true;
+    usado = true;
     switch(tipo) {
         case DOBLE_TURNO:
             turnosRestantes = DURACION_DOBLE_TURNO;
-            break;
+        std::cout << "Activando doble turno: próximos " << turnosRestantes << " turnos" << std::endl;
+        break;
+
         case PRECISION_MOVIMIENTO:
+            turnosRestantes = DURACION_OTROS_POWERUPS;
+        std::cout << "Activando precisión de movimiento: 90% de probabilidad de usar algoritmo preciso" << std::endl;
+        break;
+
         case PRECISION_ATAQUE:
+            turnosRestantes = DURACION_OTROS_POWERUPS;
+        std::cout << "Activando precisión de ataque: próximo disparo usará A*" << std::endl;
+        break;
+
         case PODER_ATAQUE:
             turnosRestantes = DURACION_OTROS_POWERUPS;
-            break;
+        std::cout << "Activando poder de ataque: próximo disparo hará 100% de daño" << std::endl;
+        break;
+
         case NONE:
             turnosRestantes = 0;
-            break;
+        std::cout << "Power-up no válido" << std::endl;
+        break;
     }
-    std::cout << "Power-up activado: " << getNombre() << " por " << turnosRestantes << " turnos" << std::endl;
 }
 
 void PowerUp::reducirTurno() {
@@ -85,9 +98,14 @@ bool PowerUp::debeSaltarTurno(const std::vector<PowerUp>& powerUps) {
     return tienePowerUpActivo(powerUps, DOBLE_TURNO);
 }
 
-void PowerUp::dibujar(sf::RenderWindow& window, const sf::Font& font, float x, float y, bool seleccionado) const {
+void PowerUp::dibujar(sf::RenderWindow& window, const sf::Font& font, float x, float y, bool seleccionado, const std::string& nombreJugador) const {
+    // No dibujar si el power-up ya fue gastado
+    if (gastado()) {
+        return;
+    }
+
+    // Resto del código de dibujo igual que antes
     if (!estaActivo()) {
-        // Dibujar fondo del power-up
         sf::RectangleShape powerUpBox({POWERUP_WIDTH, POWERUP_HEIGHT});
         powerUpBox.setPosition(x, y);
         powerUpBox.setFillColor(seleccionado ?
@@ -95,6 +113,15 @@ void PowerUp::dibujar(sf::RenderWindow& window, const sf::Font& font, float x, f
         powerUpBox.setOutlineColor(sf::Color::White);
         powerUpBox.setOutlineThickness(1);
         window.draw(powerUpBox);
+
+        // Dibujar nombre del jugador
+        sf::Text textoJugador;
+        textoJugador.setFont(font);
+        textoJugador.setString(nombreJugador);
+        textoJugador.setCharacterSize(12);
+        textoJugador.setFillColor(sf::Color::Yellow);
+        textoJugador.setPosition(x + 10.0f, y + 5.0f);
+        window.draw(textoJugador);
 
         // Dibujar texto del power-up
         sf::Text texto;
@@ -104,11 +131,10 @@ void PowerUp::dibujar(sf::RenderWindow& window, const sf::Font& font, float x, f
         texto.setFillColor(sf::Color::White);
         texto.setPosition(
             x + 10.0f,
-            y + (POWERUP_HEIGHT - texto.getLocalBounds().height) / 2.0f
+            y + (POWERUP_HEIGHT/2.0f)
         );
         window.draw(texto);
 
-        // Si está activo, mostrar turnos restantes
         if (turnosRestantes > 0) {
             sf::Text turnosText;
             turnosText.setFont(font);

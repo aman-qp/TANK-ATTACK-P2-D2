@@ -22,6 +22,16 @@ public:
     // Métodos de estado
     void recibirDanio(int cantidad);
 
+    // Métodos de pathfinding
+    std::vector<std::pair<int, int>> calcularRutaBFS(const Mapa& mapa, int inicioX, int inicioY,
+                                                    int destinoX, int destinoY);
+    std::vector<std::pair<int, int>> calcularRutaDijkstra(const Mapa& mapa, int inicioX, int inicioY,
+                                                         int destinoX, int destinoY);
+    std::vector<std::pair<int, int>> calcularRutaAleatoria(const Mapa& mapa, int inicioX, int inicioY,
+                                                          int destinoX, int destinoY) const;
+    MovementType determinarTipoMovimiento(const std::vector<PowerUp>& powerUps) const;
+
+
     // Getters
     int getX() const { return x; }
     int getY() const { return y; }
@@ -38,14 +48,6 @@ private:
     sf::Sprite sprite;
     std::vector<std::pair<int, int>> rutaActual;
 
-    // Métodos de pathfinding
-    std::vector<std::pair<int, int>> calcularRutaBFS(const Mapa& mapa, int inicioX, int inicioY,
-                                                    int destinoX, int destinoY);
-    std::vector<std::pair<int, int>> calcularRutaDijkstra(const Mapa& mapa, int inicioX, int inicioY,
-                                                         int destinoX, int destinoY);
-    std::vector<std::pair<int, int>> calcularRutaAleatoria(const Mapa& mapa, int inicioX, int inicioY,
-                                                          int destinoX, int destinoY) const;
-    MovementType determinarTipoMovimiento(const std::vector<PowerUp>& powerUps) const;
 
     // Direcciones de movimiento
     static const int movimientos[4][2];

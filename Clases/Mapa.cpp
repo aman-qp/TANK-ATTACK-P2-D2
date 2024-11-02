@@ -34,7 +34,6 @@ void Mapa::generarMapa(const std::vector<Tank>& todosLosTanques) {
 
     // Generar obstáculos aleatorios
     int cantidadObstaculos = static_cast<int>((filas * columnas) * 0.1);
-    std::cout << "Generated " << cantidadObstaculos << " obstacles." << std::endl;
 
     for (int i = 0; i < cantidadObstaculos; ++i) {
         int fila = std::rand() % filas;

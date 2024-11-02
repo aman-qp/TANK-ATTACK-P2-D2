@@ -21,7 +21,9 @@ Interfaz::Interfaz(Mapa& mapa, std::string nombre1, std::string nombre2,
       selectedPowerUp(nullptr),
       isShooting(false),
       esperandoDestino(false),
-      tiempoUltimoPowerUp(0.0f) {
+      tiempoUltimoPowerUp(0.0f),
+      powerUpConsumidoEsteTurno(false),
+      powerUpActivo(nullptr){
 
     inicializarRecursos();
 
@@ -107,6 +109,28 @@ void Interfaz::procesarEventos() {
                     manejarClicDerecho(event.mouseButton.x, event.mouseButton.y);
                 }
             break;
+            case sf::Event::KeyPressed:
+                if (event.key.code == sf::Keyboard::LShift || event.key.code == sf::Keyboard::RShift) {
+                    manejarActivacionPowerUp();
+                }
+            break;
+        }
+    }
+}
+
+void Interfaz::manejarActivacionPowerUp() {
+    std::vector<PowerUp>& powerUps = turnoJugador1 ? powerUpsJugador1 : powerUpsJugador2;
+
+    for (auto& powerUp : powerUps) {
+        if (!powerUp.estaActivo() && !powerUp.estaEnCola()) {
+            // Agregar el power-up a la cola para el próximo turno
+            powerUpsActivos.push(powerUp.getTipo());
+            powerUp.marcarEnCola(true);
+            std::cout << "Power-up " << powerUp.getNombre() << " será activado en el próximo turno" << std::endl;
+
+            // Consumir el turno actual
+            cambiarTurno();
+            return;
         }
     }
 }
@@ -148,15 +172,45 @@ void Interfaz::manejarClicDerecho(int x, int y) {
 }
 
 void Interfaz::realizarMovimiento(int destinoX, int destinoY) {
-    if (!selectedTank || selectedTank->getSalud() <= 0) return;
-
-    std::vector<PowerUp>& powerUps = turnoJugador1 ? powerUpsJugador1 : powerUpsJugador2;
+    if (!selectedTank || selectedTank->getSalud() <= 0) {
+        std::cout << "No se puede realizar el movimiento: tanque no seleccionado o destruido" << std::endl;
+        return;
+    }
 
     std::cout << "\n=== Inicio de movimiento ===" << std::endl;
     std::cout << "Posición inicial: (" << selectedTank->getX() << "," << selectedTank->getY() << ")" << std::endl;
     std::cout << "Destino: (" << destinoX << "," << destinoY << ")" << std::endl;
 
-    std::vector<std::pair<int, int>> ruta = selectedTank->calcularRuta(mapa, destinoX, destinoY, powerUps);
+    // Verificar si hay power-up de precisión de movimiento activo
+    bool precision_movimiento = false;
+    if (!powerUpsActivos.empty() && powerUpsActivos.front() == PowerUp::PRECISION_MOVIMIENTO) {
+        precision_movimiento = true;
+        powerUpsActivos.pop();
+        std::cout << "Power-up de precisión de movimiento activado" << std::endl;
+    }
+
+    std::vector<std::pair<int, int>> ruta;
+    if (precision_movimiento) {
+        // Forzar uso de algoritmo preciso con 90% de probabilidad
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> dis(1, 100);
+        bool usar_preciso = dis(gen) <= 90;
+
+        if (usar_preciso) {
+            std::cout << "Usando algoritmo preciso por power-up" << std::endl;
+            if (selectedTank->getColor() == Tank::AZUL || selectedTank->getColor() == Tank::CELESTE) {
+                ruta = selectedTank->calcularRutaBFS(mapa, selectedTank->getX(), selectedTank->getY(), destinoX, destinoY);
+            } else {
+                ruta = selectedTank->calcularRutaDijkstra(mapa, selectedTank->getX(), selectedTank->getY(), destinoX, destinoY);
+            }
+        } else {
+            std::cout << "Usando movimiento aleatorio (10% de probabilidad)" << std::endl;
+            ruta = selectedTank->calcularRutaAleatoria(mapa, selectedTank->getX(), selectedTank->getY(), destinoX, destinoY);
+        }
+    } else {
+        ruta = selectedTank->calcularRuta(mapa, destinoX, destinoY, std::vector<PowerUp>());
+    }
 
     if (!ruta.empty()) {
         std::cout << "Ruta encontrada con " << ruta.size() << " pasos" << std::endl;
@@ -170,8 +224,8 @@ void Interfaz::realizarMovimiento(int destinoX, int destinoY) {
     } else {
         std::cout << "No se pudo encontrar una ruta válida" << std::endl;
     }
-    std::cout << "=== Fin de movimiento ===\n" << std::endl;
 
+    std::cout << "=== Fin de movimiento ===\n" << std::endl;
     cambiarTurno();
 }
 
@@ -209,12 +263,22 @@ void Interfaz::dibujar() {
     dibujarTanques();
     dibujarHUD();
 
-    // Dibujar power-ups
-    std::vector<PowerUp>& powerUps = turnoJugador1 ? powerUpsJugador1 : powerUpsJugador2;
+    // Dibujar power-ups del Jugador 1
     float yOffset = 200.0f;
-    for (auto& powerUp : powerUps) {
-        powerUp.dibujar(window, font, 20.0f, yOffset);
-        yOffset += 50.0f;
+    for (auto& powerUp : powerUpsJugador1) {
+        if (!powerUp.gastado()) {  // Solo dibujar si no está gastado
+            powerUp.dibujar(window, font, 20.0f, yOffset, false, nombreJugador1);
+            yOffset += 50.0f;
+        }
+    }
+
+    // Dibujar power-ups del Jugador 2
+    yOffset = 200.0f;
+    for (auto& powerUp : powerUpsJugador2) {
+        if (!powerUp.gastado()) {  // Solo dibujar si no está gastado
+            powerUp.dibujar(window, font, window.getSize().x - 170.0f, yOffset, false, nombreJugador2);
+            yOffset += 50.0f;
+        }
     }
 
     // Dibujar elementos de juego activos
@@ -247,10 +311,30 @@ void Interfaz::dibujarIndicadorSeleccion() {
 void Interfaz::cambiarTurno() {
     limpiarEstadoTurno();
 
-    std::vector<PowerUp>& powerUps = turnoJugador1 ? powerUpsJugador1 : powerUpsJugador2;
-    if (!PowerUp::tienePowerUpActivo(powerUps, PowerUp::DOBLE_TURNO)) {
-        turnoJugador1 = !turnoJugador1;
+    // Si hay un turno extra pendiente, no cambiar de jugador
+    if (turnoExtra) {
+        turnoExtra = false;
+        return;
     }
+
+    // Verificar si hay power-ups pendientes
+    if (!powerUpsActivos.empty()) {
+        PowerUp::Type poder = powerUpsActivos.front();
+        powerUpsActivos.pop();
+
+        // Aplicar el efecto del power-up
+        switch(poder) {
+            case PowerUp::DOBLE_TURNO:
+                turnoExtra = true;
+            std::cout << "Activando doble turno" << std::endl;
+            break;
+            // Los otros power-ups se manejan en sus respectivas funciones
+            default:
+                break;
+        }
+    }
+
+    turnoJugador1 = !turnoJugador1;
 }
 
 void Interfaz::limpiarEstadoTurno() {
@@ -578,8 +662,8 @@ PowerUp* Interfaz::obtenerPowerUpEnPosicion(float x, float y) {
 }
 
 void Interfaz::manejarDisparo(int destinoX, int destinoY) {
-    if (selectedTank == nullptr || selectedTank->getSalud() <= 0) {
-        std::cout << "No se puede disparar: tanque no seleccionado o destruido" << std::endl;
+    if (!selectedTank || selectedTank->getSalud() <= 0) {
+        std::cout << "No hay tanque seleccionado para disparar o está destruido" << std::endl;
         return;
     }
 
@@ -590,13 +674,27 @@ void Interfaz::manejarDisparo(int destinoX, int destinoY) {
     );
     sf::Vector2f destino(static_cast<float>(destinoX), static_cast<float>(destinoY));
 
-    std::vector<sf::Vector2f> trayectoria = calcularTrayectoria(inicio, destino);
+    // Verificar si hay power-up de precisión de ataque activo
+    bool precision_ataque = false;
+    if (!powerUpsActivos.empty() && powerUpsActivos.front() == PowerUp::PRECISION_ATAQUE) {
+        precision_ataque = true;
+        powerUpsActivos.pop();
+        std::cout << "Power-up de precisión de ataque activado" << std::endl;
+    }
+
+    std::vector<sf::Vector2f> trayectoria;
+    if (precision_ataque) {
+        trayectoria = PowerUp::calcularTrayectoriaAStar(inicio, destino, mapa, getTileSize(), posicionMapa);
+    } else {
+        trayectoria = calcularTrayectoria(inicio, destino);
+    }
+
     dibujarTrayectoriaBala(trayectoria);
 
     bool impactoRegistrado = false;
+    std::vector<Tank>& tanquesEnemigos = turnoJugador1 ? tanquesJugador2 : tanquesJugador1;
 
     // Verificar impacto en tanques enemigos
-    std::vector<Tank>& tanquesEnemigos = turnoJugador1 ? tanquesJugador2 : tanquesJugador1;
     for (auto& tanque : tanquesEnemigos) {
         if (tanque.getSalud() <= 0) continue;
 
@@ -613,15 +711,14 @@ void Interfaz::manejarDisparo(int destinoX, int destinoY) {
     }
 
     // Verificar impacto en el tanque que disparó (después de rebote)
-    if (!impactoRegistrado && trayectoria.size() > 2) {  // Solo si hay rebotes
+    if (!impactoRegistrado && trayectoria.size() > 2) {
         sf::Vector2f posTanqueDisparo(
             posicionMapa.x + (static_cast<float>(selectedTank->getY()) * tileSize + tileSize / 2.0f),
             posicionMapa.y + (static_cast<float>(selectedTank->getX()) * tileSize + tileSize / 2.0f)
         );
 
-        // Crear una trayectoria que excluya el punto de disparo y un pequeño margen
         std::vector<sf::Vector2f> trayectoriaRebote;
-        size_t puntoInicio = std::min(size_t(3), trayectoria.size()); // Saltar los primeros puntos
+        size_t puntoInicio = std::min(size_t(3), trayectoria.size());
         trayectoriaRebote.insert(trayectoriaRebote.end(),
                                 trayectoria.begin() + puntoInicio,
                                 trayectoria.end());
@@ -797,11 +894,9 @@ bool Interfaz::balaGolpeaTanque(const std::vector<sf::Vector2f>& trayectoria, sf
 }
 
 int Interfaz::calcularDanio(Tank::Color colorAtacante, Tank::Color colorDefensor) {
-    std::vector<PowerUp>& powerUps = turnoJugador1 ? powerUpsJugador1 : powerUpsJugador2;
-    bool tienePowerAtaque = std::any_of(powerUps.begin(), powerUps.end(),
-        [](const PowerUp& p) { return p.estaActivo() && p.getTipo() == PowerUp::PODER_ATAQUE; });
-
-    if (tienePowerAtaque) {
+    // Verificar si hay power-up de poder de ataque activo
+    if (!powerUpsActivos.empty() && powerUpsActivos.front() == PowerUp::PODER_ATAQUE) {
+        powerUpsActivos.pop();
         return 100;
     }
 
